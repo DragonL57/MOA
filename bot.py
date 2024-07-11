@@ -1,3 +1,5 @@
+import os
+import streamlit as st
 import datasets
 from functools import partial
 from loguru import logger
@@ -7,7 +9,6 @@ from utils import (
     DEBUG,
 )
 from datasets.utils.logging import disable_progress_bar
-import streamlit as st
 
 disable_progress_bar()
 
@@ -33,7 +34,6 @@ st.markdown("""
         background-color: #ffffff;
         color: #000000;
     }
-    /* Styling for the chat input */
     .stChatInputContainer {
         padding-bottom: 20px;
     }
@@ -45,7 +45,6 @@ st.markdown("""
     .stChatInputContainer input {
         color: #000000 !important;
     }
-    /* Ensure text is visible in all inputs */
     input, textarea {
         color: #000000 !important;
     }
@@ -73,6 +72,17 @@ default_reference_models = [
     "mistralai/Mixtral-8x22B",
 ]
 
+def read_file_content(filename):
+    current_dir = os.path.dirname(__file__)
+    file_path = os.path.join(current_dir, filename)
+    if os.path.exists(file_path):
+        with open(file_path, 'r', encoding='utf-8') as file:
+            return file.read()
+    return f"Error: File {filename} not found."
+
+license_content = read_file_content("LICENSE")
+notice_content = read_file_content("NOTICE")
+
 def process_fn(item, temperature=0.7, max_tokens=2048):
     references = item.get("references", [])
     model = item["model"]
@@ -94,97 +104,116 @@ def process_fn(item, temperature=0.7, max_tokens=2048):
 
     return {"output": output}
 
+def show_legal_info():
+    st.title("Legal Information")
+    
+    st.header("NOTICE")
+    st.text(notice_content)
+    
+    st.header("LICENSE")
+    st.text(license_content)
+    
+    if st.button("Back to Chat"):
+        st.session_state.show_legal_info = False
+        st.experimental_rerun()
+
 def main():
-    st.markdown(welcome_message, unsafe_allow_html=True)
+    if "show_legal_info" not in st.session_state:
+        st.session_state.show_legal_info = False
     
-    # Display reference models in a more visually appealing way
-    col1, col2 = st.columns(2)
-    for i, model in enumerate(default_reference_models):
-        if i < len(default_reference_models) // 2:
-            col1.markdown(f"- {model}")
-        else:
-            col2.markdown(f"- {model}")
+    if st.session_state.show_legal_info:
+        show_legal_info()
+    else:
+        st.markdown(welcome_message, unsafe_allow_html=True)
+        
+        # Display reference models
+        col1, col2 = st.columns(2)
+        for i, model in enumerate(default_reference_models):
+            if i < len(default_reference_models) // 2:
+                col1.markdown(f"- {model}")
+            else:
+                col2.markdown(f"- {model}")
 
-    st.markdown("---")
+        st.markdown("---")
 
-    # Sidebar for configuration
-    st.sidebar.header("Configuration")
-    
-    # Create a list of unique models for the dropdown
-    unique_models = list(dict.fromkeys(["Qwen/Qwen2-72B-Instruct"] + default_reference_models))
-    
-    model = st.sidebar.selectbox(
-        "Main model",
-        unique_models,
-        index=0
-    )
-    temperature = st.sidebar.slider("Temperature", 0.0, 1.0, 0.7)
-    max_tokens = st.sidebar.slider("Max tokens", 1, 4096, 2048)
+        # Sidebar for configuration
+        st.sidebar.header("Configuration")
+        
+        unique_models = list(dict.fromkeys(["Qwen/Qwen2-72B-Instruct"] + default_reference_models))
+        
+        model = st.sidebar.selectbox(
+            "Main model",
+            unique_models,
+            index=0
+        )
+        temperature = st.sidebar.slider("Temperature", 0.0, 1.0, 0.7)
+        max_tokens = st.sidebar.slider("Max tokens", 1, 4096, 2048)
 
-    # Chat interface
-    st.header("💬 Chat with MoA")
-    
-    # Initialize chat history
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
+        # Add legal information button to sidebar
+        if st.sidebar.button("Legal Information"):
+            st.session_state.show_legal_info = True
+            st.experimental_rerun()
 
-    # Display chat messages from history on app rerun
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+        # Chat interface
+        st.header("💬 Chat with MoA")
+        
+        # Initialize chat history
+        if "messages" not in st.session_state:
+            st.session_state.messages = []
 
-    # React to user input
-    if prompt := st.chat_input("What would you like to know?"):
-        # Display user message in chat message container
-        st.chat_message("user").markdown(prompt)
-        # Add user message to chat history
-        st.session_state.messages.append({"role": "user", "content": prompt})
+        # Display chat messages from history on app rerun
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
 
-        # Generate response
-        data = {
-            "instruction": [[{"role": "user", "content": prompt}] for _ in range(len(default_reference_models))],
-            "references": [""] * len(default_reference_models),
-            "model": [m for m in default_reference_models],
-        }
+        # React to user input
+        if prompt := st.chat_input("What would you like to know?"):
+            st.chat_message("user").markdown(prompt)
+            st.session_state.messages.append({"role": "user", "content": prompt})
 
-        eval_set = datasets.Dataset.from_dict(data)
+            # Generate response
+            data = {
+                "instruction": [[{"role": "user", "content": prompt}] for _ in range(len(default_reference_models))],
+                "references": [""] * len(default_reference_models),
+                "model": [m for m in default_reference_models],
+            }
 
-        with st.spinner("Thinking..."):
-            for i_round in range(1):
-                eval_set = eval_set.map(
-                    partial(
-                        process_fn,
-                        temperature=temperature,
-                        max_tokens=max_tokens,
-                    ),
-                    batched=False,
-                    num_proc=len(default_reference_models),
+            eval_set = datasets.Dataset.from_dict(data)
+
+            with st.spinner("Thinking..."):
+                for i_round in range(1):
+                    eval_set = eval_set.map(
+                        partial(
+                            process_fn,
+                            temperature=temperature,
+                            max_tokens=max_tokens,
+                        ),
+                        batched=False,
+                        num_proc=len(default_reference_models),
+                    )
+                    references = [item["output"] for item in eval_set]
+                    data["references"] = references
+                    eval_set = datasets.Dataset.from_dict(data)
+
+                st.write("**Aggregating results & querying the aggregate model...**")
+                output = generate_with_references(
+                    model=model,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    messages=data["instruction"][0],
+                    references=references,
+                    generate_fn=generate_together_stream,
                 )
-                references = [item["output"] for item in eval_set]
-                data["references"] = references
-                eval_set = datasets.Dataset.from_dict(data)
 
-            st.write("**Aggregating results & querying the aggregate model...**")
-            output = generate_with_references(
-                model=model,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                messages=data["instruction"][0],
-                references=references,
-                generate_fn=generate_together_stream,
-            )
-
-            # Display assistant response in chat message container
-            with st.chat_message("assistant"):
-                message_placeholder = st.empty()
-                full_response = ""
-                for chunk in output:
-                    full_response += chunk.choices[0].delta.content
-                    message_placeholder.markdown(full_response + "▌")
-                message_placeholder.markdown(full_response)
-            
-            # Add assistant response to chat history
-            st.session_state.messages.append({"role": "assistant", "content": full_response})
+                with st.chat_message("assistant"):
+                    message_placeholder = st.empty()
+                    full_response = ""
+                    for chunk in output:
+                        full_response += chunk.choices[0].delta.content
+                        message_placeholder.markdown(full_response + "▌")
+                    message_placeholder.markdown(full_response)
+                
+                st.session_state.messages.append({"role": "assistant", "content": full_response})
 
 if __name__ == "__main__":
     main()
