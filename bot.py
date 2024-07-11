@@ -67,7 +67,7 @@ default_reference_models = [
     "Qwen/Qwen1.5-110B-Chat",
     "meta-llama/Llama-3-70b-chat-hf",
     "microsoft/WizardLM-2-8x22B",
-    "mistralai/Mixtral-8x22B",
+    "databricks/dbrx-instruct",
 ]
 
 def read_file_content(filename):
