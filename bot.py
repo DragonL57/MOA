@@ -65,9 +65,7 @@ Chatbot này sử dụng các mô hình ngôn ngữ lớn (LLM) sau đây làm c
 default_reference_models = [
     "Qwen/Qwen2-72B-Instruct",
     "Qwen/Qwen1.5-110B-Chat",
-    "Qwen/Qwen1.5-72B",
     "meta-llama/Llama-3-70b-chat-hf",
-    "meta-llama/Meta-Llama-3-70B",
     "microsoft/WizardLM-2-8x22B",
     "mistralai/Mixtral-8x22B",
 ]
