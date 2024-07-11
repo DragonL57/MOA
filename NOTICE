@@ -1,0 +1,6 @@
+This product includes software developed at [TOGETHER](https://github.com/togethercomputer/moa?tab=readme-ov-file).
+
+Modifications made by [Võ Mai Thế Long](https://github.com/DragonL57/MOA):
+- Integrated Streamlit for user interface
+- Added custom CSS for better styling
+- Updated processing logic for generating responses
