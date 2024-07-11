@@ -73,7 +73,7 @@ default_reference_models = [
     "mistralai/Mixtral-8x22B",
 ]
 
-def process_fn(item, temperature=0.8, max_tokens=2048):
+def process_fn(item, temperature=0.7, max_tokens=2048):
     references = item.get("references", [])
     model = item["model"]
     messages = item["instruction"]
@@ -118,7 +118,7 @@ def main():
         unique_models,
         index=0
     )
-    temperature = st.sidebar.slider("Temperature", 0.0, 1.0, 0.8)
+    temperature = st.sidebar.slider("Temperature", 0.0, 1.0, 0.7)
     max_tokens = st.sidebar.slider("Max tokens", 1, 4096, 2048)
 
     # Chat interface
