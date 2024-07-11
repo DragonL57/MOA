@@ -16,7 +16,7 @@ def generate_together(
     messages,
     max_tokens=2048,
     temperature=0.7,
-    streaming=False,
+    streaming=True,
 ):
 
     output = None
