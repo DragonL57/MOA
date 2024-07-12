@@ -7,9 +7,7 @@ import copy
 
 from loguru import logger
 
-
 DEBUG = int(os.environ.get("DEBUG", "0"))
-
 
 def generate_together(
     model,
@@ -63,7 +61,6 @@ def generate_together(
             time.sleep(sleep_time)
 
     if output is None:
-
         return output
 
     output = output.strip()
@@ -150,11 +147,8 @@ Responses from models:"""
         system += f"\n{i+1}. {reference}"
 
     if messages[0]["role"] == "system":
-
         messages[0]["content"] += "\n\n" + system
-
     else:
-
         messages = [{"role": "system", "content": system}] + messages
 
     return messages
@@ -168,9 +162,7 @@ def generate_with_references(
     temperature=0.7,
     generate_fn=generate_together,
 ):
-
     if len(references) > 0:
-
         messages = inject_references_to_messages(messages, references)
 
     return generate_fn(
