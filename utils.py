@@ -12,7 +12,7 @@ DEBUG = int(os.environ.get("DEBUG", "0"))
 def generate_together(
     model,
     messages,
-    max_tokens=2048,
+    max_tokens=8192,
     temperature=0.7,
     streaming=True,
 ):
@@ -74,7 +74,7 @@ def generate_together(
 def generate_together_stream(
     model,
     messages,
-    max_tokens=2048,
+    max_tokens=8192,
     temperature=0.7,
 ):
     endpoint = "https://api.together.xyz/v1"
