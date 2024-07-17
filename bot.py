@@ -46,11 +46,11 @@ default_reference_models = [
 
 # All available models
 all_models = [
-    "Qwen/Qwen2-72B-Instruct",
     "google/gemma-2-27b-it",
     "Qwen/Qwen1.5-110B-Chat",
     "meta-llama/Llama-3-70b-chat-hf",
     "meta-llama/Meta-Llama-3-70B",
+    "Qwen/Qwen2-72B-Instruct",
     "Qwen/Qwen1.5-72B",
     "microsoft/WizardLM-2-8x22B",
     "mistralai/Mixtral-8x22B",
@@ -110,7 +110,7 @@ if "user_system_prompt" not in st.session_state:
     st.session_state.user_system_prompt = ""
 
 if "selected_models" not in st.session_state:
-    st.session_state.selected_models = default_reference_models.copy()
+    st.session_state.selected_models = [model for model in default_reference_models]
 
 if "conversations" not in st.session_state:
     st.session_state.conversations = []
@@ -126,6 +126,9 @@ if "edit_gpt_index" not in st.session_state:
 
 if "web_search_enabled" not in st.session_state:
     st.session_state.web_search_enabled = False
+
+if "main_model" not in st.session_state:
+    st.session_state.main_model = "google/gemma-2-27b-it"
 
 # Set page configuration
 st.set_page_config(page_title="Groq MoA Chatbot", page_icon="🤖", layout="wide")
@@ -284,7 +287,7 @@ def main():
         if web_search_enabled != st.session_state.web_search_enabled:
             st.session_state.web_search_enabled = web_search_enabled
             if web_search_enabled:
-                st.session_state.selected_models = default_reference_models.copy()
+                st.session_state.selected_models = [model for model in default_reference_models]
 
         st.header("Additional System Instructions")
         user_prompt = st.text_area("Add your instructions", value=st.session_state.user_system_prompt, height=100)
@@ -300,11 +303,15 @@ def main():
         st.header("Model Settings")
         
         with st.expander("Configuration", expanded=False):
-            model = st.selectbox(
+            # Select main model
+            main_model = st.selectbox(
                 "Main model (aggregator model)",
-                default_reference_models,
-                index=default_reference_models.index("google/gemma-2-27b-it") if st.session_state.web_search_enabled else 0
+                all_models,
+                index=all_models.index(st.session_state.main_model)
             )
+            if main_model != st.session_state.main_model:
+                st.session_state.main_model = main_model
+
             temperature = st.slider("Temperature", 0.0, 2.0, 0.5, 0.1)
             max_tokens = st.slider("Max tokens", 1, 8192, 2048, 1)
 
@@ -350,7 +357,7 @@ def main():
         st.experimental_rerun()
 
     # Chat interface
-    st.markdown("Hello! I am MoA chatbot, please send me your questions below.")
+    st.header("Hello! I am MoA chatbot, please send me your questions below.")
     
     # Display chat messages from history on app rerun
     for message in st.session_state.messages[1:]:  # Skip the system message
@@ -433,7 +440,7 @@ def main():
                     eval_set = datasets.Dataset.from_dict(data)
 
                     output = generate_with_references(
-                        model=model,
+                        model=st.session_state.main_model,
                         temperature=temperature,
                         max_tokens=max_tokens,
                         messages=st.session_state.messages,
@@ -451,7 +458,6 @@ def main():
                             full_response += chunk
 
                     # Display the translated response with sources
-                    # formatted_response = format_response_with_sources(full_response, sources)
                     formatted_response = full_response
 
                     with st.chat_message("assistant"):
@@ -466,20 +472,15 @@ def main():
 
         else:
             # Log main model and translation model
-            logger.info(f"Main model: {model}")
-
-            # Update model selection logic
-            selected_models = list(set(st.session_state.selected_models))
-            if model not in selected_models:
-                selected_models.append(model)  # Ensure main model is included
+            logger.info(f"Main model: {st.session_state.main_model}")
 
             # Log selected models
-            logger.info(f"Selected models: {selected_models}")
+            logger.info(f"Selected models: {st.session_state.selected_models}")
 
             data = {
-                "instruction": [st.session_state.messages for _ in range(len(selected_models))],
-                "references": [[] for _ in range(len(selected_models))],
-                "model": selected_models,
+                "instruction": [st.session_state.messages for _ in range(len(st.session_state.selected_models))],
+                "references": [[] for _ in range(len(st.session_state.selected_models))],
+                "model": st.session_state.selected_models,
             }
 
             eval_set = datasets.Dataset.from_dict(data)
@@ -494,7 +495,7 @@ def main():
                                 max_tokens=max_tokens,
                             ),
                             batched=False,
-                            num_proc=len(selected_models),
+                            num_proc=len(st.session_state.selected_models),
                         )
                         references = [item["output"] for item in eval_set]
                         data["references"] = references
@@ -503,7 +504,7 @@ def main():
                         timer_placeholder.markdown(f"⏳ **Elapsed time: {elapsed_time.get():.2f} seconds**")
 
                     output = generate_with_references(
-                        model=model,
+                        model=st.session_state.main_model,
                         temperature=temperature,
                         max_tokens=max_tokens,
                         messages=st.session_state.messages,
@@ -538,13 +539,6 @@ def main():
             finally:
                 stop_event.set()
                 timer_thread.join()
-
-def format_response_with_sources(response, sources):
-    # Ghi log các nguồn vào console
-    logger.info(f"Sources: {sources}")
-    # Không cần thêm các đường link vào phản hồi
-    return response
-
 
 if __name__ == "__main__":
     main()
