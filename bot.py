@@ -46,11 +46,11 @@ default_reference_models = [
 
 # All available models
 all_models = [
+    "Qwen/Qwen2-72B-Instruct",
     "google/gemma-2-27b-it",
     "Qwen/Qwen1.5-110B-Chat",
     "meta-llama/Llama-3-70b-chat-hf",
     "meta-llama/Meta-Llama-3-70B",
-    "Qwen/Qwen2-72B-Instruct",
     "Qwen/Qwen1.5-72B",
     "microsoft/WizardLM-2-8x22B",
     "mistralai/Mixtral-8x22B",
@@ -350,7 +350,7 @@ def main():
         st.experimental_rerun()
 
     # Chat interface
-    st.header("Hello! I am MoA chatbot, please send me your questions below.")
+    st.markdown("Hello! I am MoA chatbot, please send me your questions below.")
     
     # Display chat messages from history on app rerun
     for message in st.session_state.messages[1:]:  # Skip the system message
