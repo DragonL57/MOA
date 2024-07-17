@@ -1,320 +1,227 @@
 import os
 import json
-import datasets
-import threading
-import time
-from functools import partial
+import requests
+import openai
+import copy
+import nltk
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
 from loguru import logger
-from utils import (
-    generate_together_stream,
-    generate_with_references,
-    DEBUG,
-)
-from datasets.utils.logging import disable_progress_bar
-import streamlit as st
-from threading import Event, Thread
+from dotenv import load_dotenv
+from tenacity import retry, wait_exponential, stop_after_attempt
 
-class SharedValue:
-    def __init__(self, initial_value=0.0):
-        self.value = initial_value
-        self.lock = threading.Lock()
+nltk.download('punkt')
+nltk.download('stopwords')
 
-    def set(self, new_value):
-        with self.lock:
-            self.value = new_value
+load_dotenv()
 
-    def get(self):
-        with self.lock:
-            return self.value
+DEBUG = int(os.environ.get("DEBUG", "0"))
 
-# Default reference models
-default_reference_models = [
-    "Qwen/Qwen2-72B-Instruct",
-    "Qwen/Qwen1.5-110B-Chat",
-    "Qwen/Qwen1.5-72B",
-    "meta-llama/Llama-3-70b-chat-hf",
-    "meta-llama/Meta-Llama-3-70B",
-    "microsoft/WizardLM-2-8x22B",
-    "mistralai/Mixtral-8x22B",
-]
+@retry(wait=wait_exponential(multiplier=1, min=1, max=60), stop=stop_after_attempt(6))
+def generate_together(
+    model,
+    messages,
+    max_tokens=2048,
+    temperature=0.7,
+    streaming=True,
+):
+    output = None
 
-# Default system prompt
-default_system_prompt = """You are an AI assistant named MoA, powered by a Mixture of Agents architecture. 
-Your role is to provide helpful, accurate, and ethical responses to user queries. 
-You have access to multiple language models and can leverage their combined knowledge to generate comprehensive answers. 
-Always strive to be respectful, avoid harmful content, and admit when you're unsure about something."""
-
-# User data management functions
-def create_user_folder(email):
-    user_folder = os.path.join("user_data", email)
-    os.makedirs(user_folder, exist_ok=True)
-    return user_folder
-
-def save_user_data(email):
-    user_folder = create_user_folder(email)
-    user_data = {
-        "messages": st.session_state.messages,
-        "user_system_prompt": st.session_state.user_system_prompt,
-        "selected_models": st.session_state.selected_models,
-        "conversations": st.session_state.conversations,
-    }
-    with open(os.path.join(user_folder, "session_data.json"), "w") as f:
-        json.dump(user_data, f, default=str)
-
-def load_user_data(email):
-    user_folder = create_user_folder(email)
     try:
-        with open(os.path.join(user_folder, "session_data.json"), "r") as f:
-            user_data = json.load(f)
-        st.session_state.messages = user_data.get("messages", [{"role": "system", "content": default_system_prompt}])
-        st.session_state.user_system_prompt = user_data.get("user_system_prompt", "")
-        st.session_state.selected_models = user_data.get("selected_models", default_reference_models.copy())
-        st.session_state.conversations = user_data.get("conversations", [])
-    except FileNotFoundError:
-        st.session_state.messages = [{"role": "system", "content": default_system_prompt}]
-        st.session_state.user_system_prompt = ""
-        st.session_state.selected_models = default_reference_models.copy()
-        st.session_state.conversations = []
+        endpoint = "https://api.together.xyz/v1/chat/completions"
+        api_key = os.environ.get('TOGETHER_API_KEY')
 
-# Initialize session state
-if "user_email" not in st.session_state:
-    st.session_state.user_email = None
+        if api_key is None:
+            logger.error("TOGETHER_API_KEY is not set")
+            return None
 
-if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "system", "content": default_system_prompt}]
+        if DEBUG:
+            logger.debug(
+                f"Sending messages ({len(messages)}) (last message: `{messages[-1]['content'][:20]}...`) to `{model}`."
+            )
 
-if "user_system_prompt" not in st.session_state:
-    st.session_state.user_system_prompt = ""
+        res = requests.post(
+            endpoint,
+            json={
+                "model": model,
+                "max_tokens": max_tokens,
+                "temperature": (temperature if temperature > 1e-4 else 0),
+                "messages": messages,
+            },
+            headers={
+                "Authorization": f"Bearer {api_key}",
+            },
+        )
+        res.raise_for_status()
+        if "error" in res.json():
+            logger.error(res.json())
+            if res.json()["error"]["type"] == "invalid_request_error":
+                logger.info("Input + output is longer than max_position_id.")
+                return None
 
-if "selected_models" not in st.session_state:
-    st.session_state.selected_models = default_reference_models.copy()
+        output = res.json()["choices"][0]["message"]["content"]
 
-if "conversations" not in st.session_state:
-    st.session_state.conversations = []
+    except requests.exceptions.Timeout as e:
+        logger.error("Timeout error: ", e)
+        raise
+    except requests.exceptions.RequestException as e:
+        logger.error("HTTP error: ", e)
+        raise
+    except Exception as e:
+        logger.error("General error: ", e)
+        if DEBUG:
+            logger.debug(f"Msgs: `{messages}`")
+        raise
 
-disable_progress_bar()
+    if output is None:
+        return output
 
-# Set page configuration
-st.set_page_config(page_title="Together AI MoA Chatbot", page_icon="🤖", layout="wide")
+    output = output.strip()
 
-# Custom CSS (previous CSS code remains the same)
-st.markdown(
-    """
-    <style>
-    /* ... (previous CSS code) ... */
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+    if DEBUG:
+        logger.debug(f"Output: `{output[:20]}...`.")
 
-# Welcome message
-welcome_message = """
-# MoA (Mixture-of-Agents) Chatbot
+    return output
 
-Phương pháp Mixture of Agents (MoA) là một kỹ thuật mới, tổ chức nhiều mô hình ngôn ngữ lớn (LLM) thành một kiến trúc nhiều lớp. Mỗi lớp bao gồm nhiều tác nhân (mô hình LLM riêng lẻ). Các tác nhân này hợp tác với nhau bằng cách tạo ra các phản hồi dựa trên đầu ra từ các tác nhân ở lớp trước, từng bước tinh chỉnh và cải thiện kết quả cuối cùng, chỉ sử dụng các mô hình mã nguồn mở (Open-source)!
+def inject_references_to_messages(
+    messages,
+    references,
+):
+    messages = copy.deepcopy(messages)
+    system = f"""Bạn đã được cung cấp một tập hợp các phản hồi từ các mô hình mã nguồn mở khác nhau cho truy vấn người dùng mới nhất. Nhiệm vụ của bạn là tổng hợp các phản hồi này thành một câu trả lời duy nhất, chất lượng cao. Điều quan trọng là phải đánh giá phê phán thông tin được cung cấp trong các phản hồi này, nhận ra rằng một số thông tin có thể bị thiên vị hoặc sai lầm. Câu trả lời của bạn không nên đơn thuần sao chép các câu trả lời đã cho mà nên cung cấp một câu trả lời tinh chỉnh, chính xác và toàn diện cho yêu cầu. Đảm bảo câu trả lời của bạn được cấu trúc tốt, mạch lạc và tuân theo các tiêu chuẩn cao nhất về độ chính xác và độ tin cậy. Đảm bảo giữ nguyên các thuật ngữ chuyên ngành và đảm bảo rằng ý nghĩa và ngữ cảnh ban đầu được giữ nguyên.
 
-Truy cập Bài nghiên cứu gốc để biết thêm chi tiết [Mixture-of-Agents Enhances Large Language Model Capabilities](https://arxiv.org/abs/2406.04692)
+Câu trả lời từ các model:"""
 
-Chatbot này sử dụng các mô hình ngôn ngữ lớn (LLM) sau đây làm các lớp – Mô hình tham chiếu, sau đó chuyển kết quả cho mô hình tổng hợp để tạo ra phản hồi cuối cùng.
-"""
+    for i, reference in enumerate(references):
+        system += f"\n{i+1}. {reference}"
 
-def process_fn(item, temperature=0.5, max_tokens=8192):
-    references = item.get("references", [])
-    model = item["model"]
-    messages = item["instruction"]
+    if messages[0]["role"] == "system":
+        messages[0]["content"] += "\n\n" + system
+    else:
+        messages = [{"role": "system", "content": system}] + messages
 
-    output = generate_with_references(
+    return messages
+
+def generate_with_references(
+    model,
+    messages,
+    references=[],
+    max_tokens=2048,
+    temperature=0.7,
+    generate_fn=generate_together,
+):
+    if len(references) > 0:
+        messages = inject_references_to_messages(messages, references)
+
+    return generate_fn(
         model=model,
         messages=messages,
-        references=references,
         temperature=temperature,
         max_tokens=max_tokens,
     )
-    if DEBUG:
-        logger.info(
-            f"model {model}, instruction {item['instruction']}, output {output[:20]}",
-        )
 
-    st.write(f"Finished querying {model}.")
+def google_search(query, num_results=10):  # Increase number of search results
+    api_key = os.environ.get('GOOGLE_API_KEY')
+    cse_id = os.environ.get('GOOGLE_CSE_ID')
+    if not api_key or not cse_id:
+        raise ValueError("Google API key or Custom Search Engine ID is missing")
 
-    return {"output": output}
+    search_url = "https://www.googleapis.com/customsearch/v1"
+    params = {
+        "q": query,
+        "key": api_key,
+        "cx": cse_id,
+        "num": num_results
+    }
 
-def run_timer(stop_event, elapsed_time):
-    start_time = time.time()
-    while not stop_event.is_set():
-        elapsed_time.set(time.time() - start_time)
-        time.sleep(0.1)
+    try:
+        response = requests.get(search_url, params=params, timeout=10)
+        response.raise_for_status()
+        search_results = response.json()
+    except requests.exceptions.HTTPError as err:
+        if err.response.status_code == 400:
+            logger.error("Bad Request: ", err)
+        elif err.response.status_code == 401:
+            logger.error("Unauthorized: ", err)
+        elif err.response.status_code == 403:
+            logger.error("Forbidden: ", err)
+        raise
+    except requests.exceptions.Timeout as e:
+        logger.error("Timeout error: ", e)
+        raise
+    except requests.exceptions.RequestException as e:
+        logger.error("HTTP error: ", e)
+        raise
 
-def main():
-    # Display welcome message
-    st.markdown(welcome_message)
+    return search_results
+
+def extract_snippets(search_results):
+    snippets = []
+    if "items" in search_results:
+        for item in search_results["items"]:
+            snippets.append(item["snippet"])
+    return snippets
+
+def extract_full_texts(search_results):
+    full_texts = []
+    if "items" in search_results:
+        for item in search_results["items"]:
+            full_texts.append(item["snippet"] + "\n\n" + item["link"])
+    return full_texts
+
+def extract_keywords(text):
+    # Tokenize và loại bỏ stopwords
+    stop_words = set(stopwords.words('english'))
+    word_tokens = word_tokenize(text.lower())
+    keywords = [word for word in word_tokens if word.isalnum() and word not in stop_words]
+    return keywords
+
+def expand_query(conversation_history, current_query):
+    # Trích xuất từ khóa từ lịch sử cuộc trò chuyện
+    history_keywords = extract_keywords(conversation_history)
     
-    # Login system
-    if st.session_state.user_email is None:
-        st.sidebar.subheader("Login")
-        email = st.sidebar.text_input("Email")
-        if st.sidebar.button("Login"):
-            st.session_state.user_email = email
-            load_user_data(email)
-            st.rerun()
-    else:
-        st.sidebar.markdown(f"Welcome, {st.session_state.user_email}!")
-        if st.sidebar.button("Logout"):
-            save_user_data(st.session_state.user_email)
-            st.session_state.user_email = None
-            st.rerun()
-
-    # Sidebar for configuration
-    with st.sidebar:
-        st.sidebar.header("Settings")
-        
-        with st.expander("Configuration", expanded=False):
-            model = st.selectbox(
-                "Main model (aggregator model)",
-                default_reference_models,
-                index=0
-            )
-            temperature = st.slider("Temperature", 0.0, 1.0, 0.5, 0.1)
-            max_tokens = st.slider("Max tokens", 1, 8192, 8192, 1)
-
-            st.subheader("Reference Models")
-            for i, ref_model in enumerate(default_reference_models):
-                if st.checkbox(ref_model, value=(ref_model in st.session_state.selected_models)):
-                    if ref_model not in st.session_state.selected_models:
-                        st.session_state.selected_models.append(ref_model)
-                else:
-                    if ref_model in st.session_state.selected_models:
-                        st.session_state.selected_models.remove(ref_model)
-
-            st.subheader("Additional System Instructions")
-            user_prompt = st.text_area("Add your instructions", value=st.session_state.user_system_prompt, height=100)
-
-            if st.button("Update System Instructions"):
-                st.session_state.user_system_prompt = user_prompt
-                combined_prompt = f"{default_system_prompt}\n\nAdditional instructions: {user_prompt}"
-                st.session_state.messages[0]["content"] = combined_prompt
-                st.success("System instructions updated successfully!")
-
-        # Start new conversation button
-        if st.button("Start New Conversation", key="new_conversation"):
-            st.session_state.messages = [{"role": "system", "content": st.session_state.messages[0]["content"]}]
-            st.rerun()
-
-        # Previous conversations
-        st.subheader("Previous Conversations")
-        for idx, conv in enumerate(st.session_state.conversations):
-            if st.button(f"{idx + 1}. {conv['first_question'][:30]}...", key=f"conv_{idx}"):
-                st.session_state.messages = conv['messages']
-                st.rerun()
-
-        # Add a download button for chat history
-        if st.button("Download Chat History"):
-            chat_history = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.messages[1:]])  # Skip system message
-            st.download_button(
-                label="Download Chat History",
-                data=chat_history,
-                file_name="chat_history.txt",
-                mime="text/plain"
-            )
-
-    # Chat interface
-    st.header("💬 Chat with MoA")
+    # Trích xuất từ khóa từ câu hỏi hiện tại
+    current_keywords = extract_keywords(current_query)
     
-    # Display chat messages from history on app rerun
-    for message in st.session_state.messages[1:]:  # Skip the system message
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+    # Kết hợp và loại bỏ trùng lặp
+    all_keywords = list(set(history_keywords + current_keywords))
+    
+    # Tạo query mở rộng
+    expanded_query = " ".join(all_keywords)
+    
+    return expanded_query
 
-    # React to user input
-    if prompt := st.chat_input("What would you like to know?"):
-        st.chat_message("user").markdown(prompt)
-        st.session_state.messages.append({"role": "user", "content": prompt})
+def generate_search_query(conversation_history, current_query):
+    # Sử dụng model google/gemma-2-27b-it để tạo query tìm kiếm
+    model = "google/gemma-2-27b-it"
+    
+    # Tạo prompt cho model
+    system_prompt = """Bạn là một trợ lý AI chuyên nghiệp trong việc tạo query tìm kiếm. 
+    Nhiệm vụ của bạn là phân tích lịch sử cuộc trò chuyện và câu hỏi hiện tại của người dùng, 
+    sau đó tạo ra một query tìm kiếm ngắn gọn, chính xác và hiệu quả. 
+    Query này sẽ được sử dụng để tìm kiếm thông tin trên web.
+    Hãy đảm bảo query bao gồm các từ khóa quan trọng và bối cảnh cần thiết."""
 
-        # Save first question of new conversation
-        if len(st.session_state.messages) == 2:  # First user message
-            st.session_state.conversations.append({
-                "first_question": prompt,
-                "messages": st.session_state.messages.copy()
-            })
+    # Remove the language instruction from the user prompt
+    user_prompt = f"""Lịch sử cuộc trò chuyện:
+    {conversation_history}
+    
+    Câu hỏi hiện tại của người dùng:
+    {current_query}
+    
+    Hãy tạo một query tìm kiếm ngắn gọn và hiệu quả dựa trên thông tin trên."""
 
-        # Generate response
-        timer_placeholder = st.empty()
-        stop_event = threading.Event()
-        elapsed_time = SharedValue()
-        timer_thread = threading.Thread(target=run_timer, args=(stop_event, elapsed_time))
-        timer_thread.start()
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt}
+    ]
 
-        start_time = time.time()
+    # Gọi API để generate query
+    generated_query = generate_together(
+        model=model,
+        messages=messages,
+        max_tokens=100,
+        temperature=0.7
+    )
 
-        # Update model selection logic
-        selected_models = list(set(st.session_state.selected_models) - set([model]))
-        if not selected_models:
-            selected_models = [model]  # Use main model if no other models are selected
-
-        data = {
-            "instruction": [st.session_state.messages for _ in range(len(selected_models))],
-            "references": [[] for _ in range(len(selected_models))],
-            "model": selected_models,
-        }
-
-        eval_set = datasets.Dataset.from_dict(data)
-
-        try:
-            with st.spinner("Thinking..."):
-                progress_bar = st.progress(0)
-                for i_round in range(1):
-                    eval_set = eval_set.map(
-                        partial(
-                            process_fn,
-                            temperature=temperature,
-                            max_tokens=max_tokens,
-                        ),
-                        batched=False,
-                        num_proc=len(selected_models),
-                    )
-                    references = [item["output"] for item in eval_set]
-                    data["references"] = references
-                    eval_set = datasets.Dataset.from_dict(data)
-                    progress_bar.progress((i_round + 1) / 1)
-                    # Update timer display
-                    timer_placeholder.markdown(f"⏳ **Elapsed time: {elapsed_time.get():.2f} seconds**")
-
-                st.write("Aggregating results & querying the aggregate model...")
-                output = generate_with_references(
-                    model=model,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    messages=st.session_state.messages,
-                    references=references,
-                    generate_fn=generate_together_stream
-                )
-
-                with st.chat_message("assistant"):
-                    message_placeholder = st.empty()
-                    full_response = ""
-                    for chunk in output:
-                        full_response += chunk.choices[0].delta.content
-                        message_placeholder.markdown(full_response + "▌")
-                        # Update timer display
-                        timer_placeholder.markdown(f"⏳ **Elapsed time: {elapsed_time.get():.2f} seconds**")
-                    message_placeholder.markdown(full_response)
-                
-                st.session_state.messages.append({"role": "assistant", "content": full_response})
-
-            end_time = time.time()
-            duration = end_time - start_time
-            timer_placeholder.markdown(f"⏳ **Total elapsed time: {duration:.2f} seconds**")
-
-        except Exception as e:
-            st.error(f"An error occurred during the generation process: {str(e)}")
-            logger.error(f"Generation error: {str(e)}")
-        finally:
-            stop_event.set()
-            timer_thread.join()
-
-    # Auto-save user data after each interaction
-    if st.session_state.user_email:
-        save_user_data(st.session_state.user_email)
-
-if __name__ == "__main__":
-    main()
+    return generated_query.strip()
