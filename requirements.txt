@@ -1,4 +1,15 @@
-openai
-fire
+beautifulsoup4
+selenium
+webdriver-manager
 loguru
+python-dotenv
+requests
+streamlit
+streamlit-option-menu
+extra_streamlit_components
+openai
+langdetect
 datasets
+openpyxl
+nltk
+ratelimit
