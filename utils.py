@@ -7,13 +7,10 @@ import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from loguru import logger
-from dotenv import load_dotenv
 from tenacity import retry, wait_exponential, stop_after_attempt
 
 nltk.download('punkt')
 nltk.download('stopwords')
-
-load_dotenv()
 
 DEBUG = int(os.environ.get("DEBUG", "0"))
 
