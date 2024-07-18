@@ -131,7 +131,7 @@ if "main_model" not in st.session_state:
     st.session_state.main_model = "google/gemma-2-27b-it"
 
 # Set page configuration
-st.set_page_config(page_title="Groq MoA Chatbot", page_icon="🤖", layout="wide")
+st.set_page_config(page_title="MoA Chatbot", page_icon="🤖", layout="wide")
 
 # Custom CSS
 st.markdown(
