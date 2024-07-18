@@ -39,7 +39,6 @@ class SharedValue:
 # Updated default reference models
 default_reference_models = [
     "google/gemma-2-27b-it",
-    "Qwen/Qwen1.5-110B-Chat",
     "meta-llama/Llama-3-70b-chat-hf",
     "meta-llama/Meta-Llama-3-70B",
     "Qwen/Qwen2-72B-Instruct",
