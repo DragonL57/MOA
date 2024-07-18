@@ -26,6 +26,7 @@ def generate_together(
     streaming=True,
 ):
     output = None
+    token_count = 0
 
     try:
         endpoint = "https://api.together.xyz/v1/chat/completions"
@@ -33,7 +34,7 @@ def generate_together(
 
         if api_key is None:
             logger.error("TOGETHER_API_KEY is not set")
-            return None
+            return None, token_count
 
         if DEBUG:
             logger.debug(
@@ -57,9 +58,11 @@ def generate_together(
             logger.error(res.json())
             if res.json()["error"]["type"] == "invalid_request_error":
                 logger.info("Input + output is longer than max_position_id.")
-                return None
+                return None, token_count
 
-        output = res.json()["choices"][0]["message"]["content"]
+        response = res.json()
+        output = response["choices"][0]["message"]["content"]
+        token_count = response["usage"]["total_tokens"]  # Extract token count from the response
 
     except requests.exceptions.Timeout as e:
         logger.error("Timeout error: ", e)
@@ -74,14 +77,14 @@ def generate_together(
         raise
 
     if output is None:
-        return output
+        return output, token_count
 
     output = output.strip()
 
     if DEBUG:
         logger.debug(f"Output: `{output[:20]}...`.")
 
-    return output
+    return output, token_count  # Return the token count
 
 def inject_references_to_messages(
     messages,
@@ -113,12 +116,19 @@ def generate_with_references(
     if len(references) > 0:
         messages = inject_references_to_messages(messages, references)
 
-    return generate_fn(
+    output, token_count = generate_fn(
         model=model,
         messages=messages,
         temperature=temperature,
         max_tokens=max_tokens,
     )
+
+    return output, token_count
+
+    # Add logic to count tokens used
+    token_count = sum([len(message["content"].split()) for message in messages])
+
+    return output, token_count
 
 def google_search(query, num_results=10):  # Increase number of search results
     api_key = os.environ.get('GOOGLE_API_KEY')
