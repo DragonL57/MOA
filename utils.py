@@ -125,11 +125,6 @@ def generate_with_references(
 
     return output, token_count
 
-    # Add logic to count tokens used
-    token_count = sum([len(message["content"].split()) for message in messages])
-
-    return output, token_count
-
 def google_search(query, num_results=10):  # Increase number of search results
     api_key = os.environ.get('GOOGLE_API_KEY')
     cse_id = os.environ.get('GOOGLE_CSE_ID')
@@ -201,18 +196,16 @@ def expand_query(conversation_history, current_query):
     
     return expanded_query
 
-def generate_search_query(conversation_history, current_query):
-    # Sử dụng model google/gemma-2-27b-it để tạo query tìm kiếm
-    model = "google/gemma-2-8b-it"
+def generate_search_query(conversation_history, current_query, language):
+    model = "google/gemma-2-9b-it"
     
-    # Tạo prompt cho model
-    system_prompt = """Bạn là một trợ lý AI chuyên nghiệp trong việc tạo query tìm kiếm. 
+    system_prompt = f"""Bạn là một trợ lý AI chuyên nghiệp trong việc tạo query tìm kiếm. 
     Nhiệm vụ của bạn là phân tích lịch sử cuộc trò chuyện và câu hỏi hiện tại của người dùng, 
     sau đó tạo ra một query tìm kiếm ngắn gọn, chính xác và hiệu quả. 
     Query này sẽ được sử dụng để tìm kiếm thông tin trên web.
-    Hãy đảm bảo query bao gồm các từ khóa quan trọng và bối cảnh cần thiết."""
+    Hãy đảm bảo query bao gồm các từ khóa quan trọng và bối cảnh cần thiết.
+    Tạo query bằng ngôn ngữ của câu hỏi người dùng: {language}."""
 
-    # Remove the language instruction from the user prompt
     user_prompt = f"""Lịch sử cuộc trò chuyện:
     {conversation_history}
     
@@ -226,12 +219,11 @@ def generate_search_query(conversation_history, current_query):
         {"role": "user", "content": user_prompt}
     ]
 
-    # Gọi API để generate query
-    generated_query = generate_together(
+    generated_query, token_count = generate_together(
         model=model,
         messages=messages,
         max_tokens=100,
         temperature=0.7
     )
 
-    return generated_query.strip()
+    return generated_query.strip(), token_count
