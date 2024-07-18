@@ -200,7 +200,7 @@ welcome_message = """
 
 Made by Võ Mai Thế Long 👨‍🏫
 
-Powered by LLM models from Groq.com
+Powered by Together.ai
 """
 
 def process_fn(item, temperature=0.7, max_tokens=2048):
