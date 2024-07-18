@@ -40,7 +40,7 @@ class SharedValue:
 default_reference_models = [
     "google/gemma-2-27b-it",
     "meta-llama/Llama-3-70b-chat-hf",
-    "Qwen/Qwen1.5-72B",
+    "meta-llama/Meta-Llama-3-70B",
     "Qwen/Qwen2-72B-Instruct",
 ]
 
@@ -55,6 +55,7 @@ all_models = [
     "microsoft/WizardLM-2-8x22B",
     "mistralai/Mixtral-8x22B-Instruct-v0.1",
 ]
+
 # Pricing of each model per 1M tokens(in $)
 model_pricing = {
     "meta-llama/Llama-3-70b-chat-hf": 0.90,
@@ -68,7 +69,6 @@ model_pricing = {
     "Qwen/Qwen1.5-110B-Chat": 1.20,
 }
 vnd_per_usd = 24000  # Example conversion rate, update this with the actual rate
-
 
 # Default system prompt
 default_system_prompt = """Bạn là một trợ lý AI chuyên nghiệp với kiến thức sâu rộng. Hãy cung cấp câu trả lời:
@@ -252,17 +252,14 @@ def run_timer(stop_event, elapsed_time):
         time.sleep(0.1)
 
 def extract_url_from_prompt(prompt):
-    # Implement a function to extract URL from the prompt
     import re
     url_pattern = re.compile(r'https?://\S+')
     url = url_pattern.search(prompt)
     return url.group(0) if url else None
 
 def generate_search_query(conversation_history, current_query, language):
-    # Sử dụng model Gemma-2-9B-IT để tạo query tìm kiếm
     model = "google/gemma-2-9b-it"
     
-    # Tạo prompt cho model
     system_prompt = f"""Bạn là một trợ lý AI chuyên nghiệp trong việc tạo query tìm kiếm. 
     Nhiệm vụ của bạn là phân tích lịch sử cuộc trò chuyện và câu hỏi hiện tại của người dùng, 
     sau đó tạo ra một query tìm kiếm ngắn gọn, chính xác và hiệu quả. 
@@ -283,15 +280,14 @@ def generate_search_query(conversation_history, current_query, language):
         {"role": "user", "content": user_prompt}
     ]
 
-    # Gọi API để generate query
-    generated_query = generate_together(
+    generated_query, token_count = generate_together(
         model=model,
         messages=messages,
         max_tokens=100,
         temperature=0.7
     )
 
-    return generated_query.strip()
+    return generated_query.strip(), token_count
 
 def main():
     # Display welcome message
@@ -425,7 +421,7 @@ def main():
                 with st.spinner("Đang tìm kiếm trên web..."):
                     # Sử dụng hàm generate_search_query để tạo query
                     conversation_history = "\n".join([f"{msg['role']}: {msg['content']}" for msg in st.session_state.messages[:-1]])
-                    generated_query = generate_search_query(conversation_history, prompt, user_language)
+                    generated_query, search_query_token_count = generate_search_query(conversation_history, prompt, user_language)
                     
                     # Display the search query used
                     st.session_state.messages.append({"role": "system", "content": f"Search query: {generated_query}"})
