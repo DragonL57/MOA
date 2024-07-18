@@ -53,8 +53,22 @@ all_models = [
     "Qwen/Qwen2-72B-Instruct",
     "Qwen/Qwen1.5-72B",
     "microsoft/WizardLM-2-8x22B",
-    "mistralai/Mixtral-8x22B",
+    "mistralai/Mixtral-8x22B-Instruct-v0.1",
 ]
+# Pricing of each model per 1M tokens(in $)
+model_pricing = {
+    "meta-llama/Llama-3-70b-chat-hf": 0.90,
+    "Qwen/Qwen2-72B-Instruct": 0.90,
+    "google/gemma-2-27b-it": 0.80,
+    "google/gemma-2-9b-it": 0.30,
+    "meta-llama/Meta-Llama-3-70B": 0.90,
+    "mistralai/Mixtral-8x22B-Instruct-v0.1": 1.20,
+    "microsoft/WizardLM-2-8x22B": 1.20,
+    "Qwen/Qwen1.5-72B": 0.90,
+    "Qwen/Qwen1.5-110B-Chat": 1.20,
+}
+vnd_per_usd = 24000  # Example conversion rate, update this with the actual rate
+
 
 # Default system prompt
 default_system_prompt = """Bạn là một trợ lý AI chuyên nghiệp với kiến thức sâu rộng. Hãy cung cấp câu trả lời:
@@ -129,6 +143,9 @@ if "web_search_enabled" not in st.session_state:
 
 if "main_model" not in st.session_state:
     st.session_state.main_model = "Qwen/Qwen2-72B-Instruct"
+
+if "total_tokens" not in st.session_state:
+    st.session_state.total_tokens = 0
 
 # Set page configuration
 st.set_page_config(page_title="MoA Chatbot", page_icon="🤖", layout="wide")
@@ -208,21 +225,25 @@ def process_fn(item, temperature=0.7, max_tokens=2048):
     model = item["model"]
     messages = item["instruction"]
 
-    output = generate_with_references(
+    output, token_count = generate_with_references(
         model=model,
         messages=messages,
         references=references,
         temperature=temperature,
         max_tokens=max_tokens,
     )
+    
+    cost_usd = (token_count / 1_000_000) * model_pricing.get(model, 0)
+    cost_vnd = cost_usd * vnd_per_usd
+
     if DEBUG:
         logger.info(
-            f"model {model}, instruction {item['instruction']}, output {output[:20]}",
+            f"model {model}, instruction {item['instruction']}, output {output[:20]}, tokens {token_count}, cost ${cost_usd:.6f}, cost {cost_vnd:.0f} VND",
         )
 
-    st.write(f"Finished querying {model}.")
+    st.write(f"Finished querying {model}. Tokens used: {token_count}, Cost: ${cost_usd:.6f}, Cost: {cost_vnd:.0f} VND")
 
-    return {"output": output}
+    return {"output": output, "tokens": token_count, "cost_usd": cost_usd, "cost_vnd": cost_vnd}
 
 def run_timer(stop_event, elapsed_time):
     start_time = time.time()
@@ -327,6 +348,7 @@ def main():
         # Start new conversation button
         if st.button("Start New Conversation", key="new_conversation"):
             st.session_state.messages = [{"role": "system", "content": st.session_state.messages[0]["content"]}]
+            st.session_state.total_tokens = 0
             st.rerun()
 
         # Previous conversations
@@ -336,6 +358,7 @@ def main():
             with cols[0]:
                 if st.button(f"{len(st.session_state.conversations) - idx}. {conv['first_question'][:30]}...", key=f"conv_{idx}"):
                     st.session_state.messages = conv['messages']
+                    st.session_state.total_tokens = sum(msg.get('tokens', 0) for msg in conv['messages'])
                     st.rerun()
             with cols[1]:
                 if st.button("❌", key=f"del_{idx}", on_click=lambda i=idx: delete_conversation(len(st.session_state.conversations) - i - 1)):
@@ -363,6 +386,8 @@ def main():
     for message in st.session_state.messages[1:]:  # Skip the system message
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
+            if "tokens" in message and "cost_usd" in message and "cost_vnd" in message:
+                st.markdown(f"**Tokens used:** {message['tokens']}, **Cost:** ${message['cost_usd']:.6f}, **Cost:** {message['cost_vnd']:.0f} VND")
 
     # React to user input
     if prompt := st.chat_input("What would you like to know?"):
@@ -387,6 +412,10 @@ def main():
         timer_thread.start()
 
         start_time = time.time()
+
+        total_tokens = 0
+        total_cost_usd = 0
+        total_cost_vnd = 0
 
         if st.session_state.web_search_enabled:
             try:
@@ -416,7 +445,6 @@ def main():
                     logger.info(f"Search sources: {sources}")
                     
                     search_summary = "\n\n".join(snippets)
-                    # Không thêm search_summary vào st.session_state.messages để tránh hiển thị trên UI
 
                     # Use the search summary to generate a final response using the main model
                     data = {
@@ -436,10 +464,18 @@ def main():
                         num_proc=len(st.session_state.selected_models),
                     )
                     references = [item["output"] for item in eval_set]
+                    token_counts = [item["tokens"] for item in eval_set]
+                    cost_usd_list = [item["cost_usd"] for item in eval_set]
+                    cost_vnd_list = [item["cost_vnd"] for item in eval_set]
+                    
+                    total_tokens += sum(token_counts)
+                    total_cost_usd += sum(cost_usd_list)
+                    total_cost_vnd += sum(cost_vnd_list)
+
                     data["references"] = references
                     eval_set = datasets.Dataset.from_dict(data)
 
-                    output = generate_with_references(
+                    output, response_token_count = generate_with_references(
                         model=st.session_state.main_model,
                         temperature=temperature,
                         max_tokens=max_tokens,
@@ -447,6 +483,13 @@ def main():
                         references=references,
                         generate_fn=generate_together
                     )
+
+                    response_cost_usd = (response_token_count / 1_000_000) * model_pricing.get(st.session_state.main_model, 0)
+                    response_cost_vnd = response_cost_usd * vnd_per_usd
+
+                    total_tokens += response_token_count
+                    total_cost_usd += response_cost_usd
+                    total_cost_vnd += response_cost_vnd
 
                     full_response = ""
                     for chunk in output:
@@ -462,9 +505,17 @@ def main():
 
                     with st.chat_message("assistant"):
                         st.markdown(formatted_response)
+                        st.markdown(f"**Tokens used:** {total_tokens}, **Cost:** ${total_cost_usd:.6f}, **Cost:** {total_cost_vnd:.0f} VND")
                     
-                    st.session_state.messages.append({"role": "assistant", "content": formatted_response})
+                    st.session_state.messages.append({
+                        "role": "assistant", 
+                        "content": formatted_response, 
+                        "tokens": total_tokens, 
+                        "cost_usd": total_cost_usd, 
+                        "cost_vnd": total_cost_vnd
+                    })
                     st.session_state.conversations[-1]['messages'] = st.session_state.messages.copy()
+                    st.session_state.total_tokens += total_tokens
 
             except Exception as e:
                 logger.error(f"Error during web search: {str(e)}")
@@ -498,12 +549,20 @@ def main():
                             num_proc=len(st.session_state.selected_models),
                         )
                         references = [item["output"] for item in eval_set]
+                        token_counts = [item["tokens"] for item in eval_set]
+                        cost_usd_list = [item["cost_usd"] for item in eval_set]
+                        cost_vnd_list = [item["cost_vnd"] for item in eval_set]
+                        
+                        total_tokens += sum(token_counts)
+                        total_cost_usd += sum(cost_usd_list)
+                        total_cost_vnd += sum(cost_vnd_list)
+
                         data["references"] = references
                         eval_set = datasets.Dataset.from_dict(data)
                         # Update timer display
                         timer_placeholder.markdown(f"⏳ **Elapsed time: {elapsed_time.get():.2f} seconds**")
 
-                    output = generate_with_references(
+                    output, response_token_count = generate_with_references(
                         model=st.session_state.main_model,
                         temperature=temperature,
                         max_tokens=max_tokens,
@@ -511,6 +570,13 @@ def main():
                         references=references,
                         generate_fn=generate_together
                     )
+
+                    response_cost_usd = (response_token_count / 1_000_000) * model_pricing.get(st.session_state.main_model, 0)
+                    response_cost_vnd = response_cost_usd * vnd_per_usd
+
+                    total_tokens += response_token_count
+                    total_cost_usd += response_cost_usd
+                    total_cost_vnd += response_cost_vnd
 
                     full_response = ""
                     for chunk in output:
@@ -524,9 +590,17 @@ def main():
                     # Display the translated response
                     with st.chat_message("assistant"):
                         st.markdown(full_response)
+                        st.markdown(f"**Tokens used:** {total_tokens}, **Cost:** ${total_cost_usd:.6f}, **Cost:** {total_cost_vnd:.0f} VND")
                     
-                    st.session_state.messages.append({"role": "assistant", "content": full_response})
+                    st.session_state.messages.append({
+                        "role": "assistant", 
+                        "content": full_response, 
+                        "tokens": total_tokens, 
+                        "cost_usd": total_cost_usd, 
+                        "cost_vnd": total_cost_vnd
+                    })
                     st.session_state.conversations[-1]['messages'] = st.session_state.messages.copy()
+                    st.session_state.total_tokens += total_tokens
 
                 end_time = time.time()
                 duration = end_time - start_time
