@@ -193,7 +193,7 @@ def expand_query(conversation_history, current_query):
 
 def generate_search_query(conversation_history, current_query):
     # Sử dụng model google/gemma-2-27b-it để tạo query tìm kiếm
-    model = "google/gemma-2-27b-it"
+    model = "google/gemma-2-8b-it"
     
     # Tạo prompt cho model
     system_prompt = """Bạn là một trợ lý AI chuyên nghiệp trong việc tạo query tìm kiếm. 
