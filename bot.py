@@ -1,4 +1,4 @@
-import os
+5import os
 import json
 import datasets
 import threading
@@ -239,7 +239,7 @@ def extract_url_from_prompt(prompt):
 
 def generate_search_query(conversation_history, current_query, language):
     # Sử dụng model Gemma-2-9B-IT để tạo query tìm kiếm
-    model = "google/gemma-2-27b-it"
+    model = "google/gemma-2-9b-it"
     
     # Tạo prompt cho model
     system_prompt = f"""Bạn là một trợ lý AI chuyên nghiệp trong việc tạo query tìm kiếm. 
@@ -357,7 +357,7 @@ def main():
         st.experimental_rerun()
 
     # Chat interface
-    st.header("Hello! I am MoA chatbot, please send me your questions below.")
+    st.markdown("Hello! I am MoA chatbot, please send me your questions below.")
     
     # Display chat messages from history on app rerun
     for message in st.session_state.messages[1:]:  # Skip the system message
