@@ -42,6 +42,7 @@ default_reference_models = [
     "Qwen/Qwen1.5-110B-Chat",
     "meta-llama/Llama-3-70b-chat-hf",
     "meta-llama/Meta-Llama-3-70B",
+    "Qwen/Qwen2-72B-Instruct",
 ]
 
 # All available models
@@ -128,7 +129,7 @@ if "web_search_enabled" not in st.session_state:
     st.session_state.web_search_enabled = False
 
 if "main_model" not in st.session_state:
-    st.session_state.main_model = "google/gemma-2-27b-it"
+    st.session_state.main_model = "Qwen/Qwen2-72B-Instruct"
 
 # Set page configuration
 st.set_page_config(page_title="MoA Chatbot", page_icon="🤖", layout="wide")
