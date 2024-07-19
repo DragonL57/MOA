@@ -46,6 +46,7 @@ default_reference_models = [
 
 # All available models
 all_models = [
+    "deepseek-ai/deepseek-llm-67b-chat",
     "google/gemma-2-27b-it",
     "Qwen/Qwen1.5-110B-Chat",
     "meta-llama/Llama-3-70b-chat-hf",
