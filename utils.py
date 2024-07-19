@@ -23,7 +23,7 @@ DEBUG = int(os.environ.get("DEBUG", "0"))
 async def generate_together(
     model,
     messages,
-    max_tokens=2048,
+    max_tokens=8192,
     temperature=0.7,
     streaming=True,
 ):
@@ -115,7 +115,7 @@ async def generate_with_references_async(
     model,
     messages,
     references=[],
-    max_tokens=2048,
+    max_tokens=8192,
     temperature=0.7,
     generate_fn=generate_together,
 ):
