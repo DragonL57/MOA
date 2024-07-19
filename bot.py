@@ -14,7 +14,6 @@ from utils import (
     google_search_async,
     extract_snippets,
     expand_query,
-    generate_search_query_async,
     DEBUG,
 )
 import streamlit as st
