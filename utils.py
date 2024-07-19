@@ -181,28 +181,3 @@ def expand_query(conversation_history, current_query):
     all_keywords = list(set(history_keywords + current_keywords))
     expanded_query = " ".join(all_keywords)
     return expanded_query
-
-async def generate_search_query_async(conversation_history, current_query, language):
-    system_prompt = f"""Bạn là một trợ lý AI chuyên nghiệp trong việc tạo query tìm kiếm. 
-    Nhiệm vụ của bạn là phân tích lịch sử cuộc trò chuyện và câu hỏi hiện tại của người dùng, 
-    sau đó tạo ra một query tìm kiếm ngắn gọn, chính xác và hiệu quả. 
-    Query này sẽ được sử dụng để tìm kiếm thông tin trên web.
-    Hãy đảm bảo query bao gồm các từ khóa quan trọng và bối cảnh cần thiết.
-    Tạo query bằng ngôn ngữ của câu hỏi người dùng: {language}."""
-
-    user_prompt = f"""Lịch sử cuộc trò chuyện:
-    {conversation_history}
-    
-    Câu hỏi hiện tại của người dùng:
-    {current_query}
-    
-    Hãy tạo một query tìm kiếm ngắn gọn và hiệu quả dựa trên thông tin trên."""
-
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_prompt}
-    ]
-
-    async with aiohttp.ClientSession() as session:
-        output, token_count = await generate_together(session, model="google/gemma-2-27b-it", messages=messages)
-        return output.strip(), token_count
