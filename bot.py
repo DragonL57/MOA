@@ -42,7 +42,7 @@ default_reference_models = [
     "google/gemma-2-27b-it",
     "Qwen/Qwen1.5-72B",
     "Qwen/Qwen2-72B-Instruct",
-    "mistralai/Mixtral-8x7B-v0.1",
+    "deepseek-ai/deepseek-llm-67b-chat",
 ]
 
 # All available models
@@ -56,7 +56,6 @@ all_models = [
     "Qwen/Qwen1.5-72B",
     "microsoft/WizardLM-2-8x22B",
     "mistralai/Mixtral-8x22B-Instruct-v0.1",
-    "mistralai/Mixtral-8x7B-v0.1",
 ]
 
 # Pricing of each model per 1M tokens(in $)
@@ -71,7 +70,6 @@ model_pricing = {
     "Qwen/Qwen1.5-72B": 0.90,
     "Qwen/Qwen1.5-110B-Chat": 1.20,
     "deepseek-ai/deepseek-llm-67b-chat": 0.90,
-    "mistralai/Mixtral-8x7B-v0.1": 0.60,
 }
 vnd_per_usd = 24000  # Example conversion rate, update this with the actual rate
 
@@ -155,29 +153,10 @@ if "total_tokens" not in st.session_state:
 # Set page configuration
 st.set_page_config(page_title="MoA Chatbot", page_icon="🤖", layout="wide")
 
-# Custom CSS for animations
+# Custom CSS
 st.markdown(
     """
     <style>
-    @keyframes blink {
-        0% { opacity: 0; }
-        50% { opacity: 0.5; }
-        100% { opacity: 1; }
-    }
-    .typing {
-        font-size: 1rem;
-        display: inline-block;
-        white-space: nowrap;
-        overflow: hidden;
-        animation: blink 1s step-end infinite;
-    }
-    .message {
-        animation: fadeIn 0.5s;
-    }
-    @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-    }
     .sidebar-content {
         padding: 1rem;
     }
@@ -186,49 +165,49 @@ st.markdown(
         align-items: center;
         justify-content: space-between;
         padding: 0.5rem;
-        border-bottom: 1px solid #ccc;
+        border-bottom: 1px solid #ccc.
     }
     .sidebar-content .custom-gpt:last-child {
-        border-bottom: none;
+        border-bottom: none.
     }
     .remove-button {
-        background-color: transparent;
-        color: red;
-        border: none;
-        cursor: pointer;
-        font-size: 16px;
+        background-color: transparent.
+        color: red.
+        border: none.
+        cursor: pointer.
+        font-size: 16px.
     }
     .modal {
-        display: none;
-        position: fixed;
-        z-index: 1;
-        left: 0;
-        top: 0;
-        width: 100%;
-        height: 100%;
-        overflow: auto;
-        background-color: rgb(0,0,0);
-        background-color: rgba(0,0,0,0.4);
-        padding-top: 60px;
+        display: none.
+        position: fixed.
+        z-index: 1.
+        left: 0.
+        top: 0.
+        width: 100%.
+        height: 100%.
+        overflow: auto.
+        background-color: rgb(0,0,0).
+        background-color: rgba(0,0,0,0.4).
+        padding-top: 60px.
     }
     .modal-content {
-        background-color: #fefefe;
-        margin: 5% auto;
-        padding: 20px;
-        border: 1px solid #888;
-        width: 80%;
+        background-color: #fefefe.
+        margin: 5% auto.
+        padding: 20px.
+        border: 1px solid #888.
+        width: 80%.
     }
     .close {
-        color: #aaa;
-        float: right;
-        font-size: 28px;
-        font-weight: bold;
+        color: #aaa.
+        float: right.
+        font-size: 28px.
+        font-weight: bold.
     }
     .close:hover,
     .close:focus {
-        color: black;
-        text-decoration: none;
-        cursor: pointer;
+        color: black.
+        text-decoration: none.
+        cursor: pointer.
     }
     </style>
     """,
@@ -355,7 +334,7 @@ async def main_async():
                 st.session_state.main_model = main_model
 
             temperature = st.slider("Temperature", 0.0, 2.0, 0.5, 0.1)
-            max_tokens = st.slider("Max tokens", 1, 8192, 4096, 1)
+            max_tokens = st.slider("Max tokens", 1, 8192, 2048, 1)
 
             st.subheader("Reference Models")
             for ref_model in all_models:
