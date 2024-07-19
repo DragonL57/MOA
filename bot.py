@@ -222,7 +222,7 @@ Made by Võ Mai Thế Long 👨‍🏫
 
 Powered by Together.ai
 """
-async def process_fn(item, temperature=0.7, max_tokens=2048):
+async def process_fn(item, temperature=0.7, max_tokens=4096):
     if isinstance(item, str):
         model = item
         references = []
@@ -334,7 +334,7 @@ async def main_async():
                 st.session_state.main_model = main_model
 
             temperature = st.slider("Temperature", 0.0, 2.0, 0.5, 0.1)
-            max_tokens = st.slider("Max tokens", 1, 8192, 2048, 1)
+            max_tokens = st.slider("Max tokens", 1, 8192, 4096, 1)
 
             st.subheader("Reference Models")
             for ref_model in all_models:
