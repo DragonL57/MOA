@@ -63,11 +63,12 @@ model_pricing = {
     "Qwen/Qwen2-72B-Instruct": 0.90,
     "google/gemma-2-27b-it": 0.80,
     "google/gemma-2-9b-it": 0.30,
-    "meta-llama/Meta-Llama-3-70B": 0.90,
+    "meta-llama/Meta-Llama-3-70B-Instruct-Turbo": 0.90,
     "mistralai/Mixtral-8x22B-Instruct-v0.1": 1.20,
     "microsoft/WizardLM-2-8x22B": 1.20,
     "Qwen/Qwen1.5-72B": 0.90,
     "Qwen/Qwen1.5-110B-Chat": 1.20,
+    "deepseek-ai/deepseek-llm-67b-chat": 0.90,
 }
 vnd_per_usd = 24000  # Example conversion rate, update this with the actual rate
 
