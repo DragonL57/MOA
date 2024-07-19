@@ -153,10 +153,29 @@ if "total_tokens" not in st.session_state:
 # Set page configuration
 st.set_page_config(page_title="MoA Chatbot", page_icon="🤖", layout="wide")
 
-# Custom CSS
+# Custom CSS for animations
 st.markdown(
     """
     <style>
+    @keyframes blink {
+        0% { opacity: 0; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+    }
+    .typing {
+        font-size: 1rem;
+        display: inline-block;
+        white-space: nowrap;
+        overflow: hidden;
+        animation: blink 1s step-end infinite;
+    }
+    .message {
+        animation: fadeIn 0.5s;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
     .sidebar-content {
         padding: 1rem;
     }
@@ -165,49 +184,49 @@ st.markdown(
         align-items: center;
         justify-content: space-between;
         padding: 0.5rem;
-        border-bottom: 1px solid #ccc.
+        border-bottom: 1px solid #ccc;
     }
     .sidebar-content .custom-gpt:last-child {
-        border-bottom: none.
+        border-bottom: none;
     }
     .remove-button {
-        background-color: transparent.
-        color: red.
-        border: none.
-        cursor: pointer.
-        font-size: 16px.
+        background-color: transparent;
+        color: red;
+        border: none;
+        cursor: pointer;
+        font-size: 16px;
     }
     .modal {
-        display: none.
-        position: fixed.
-        z-index: 1.
-        left: 0.
-        top: 0.
-        width: 100%.
-        height: 100%.
-        overflow: auto.
-        background-color: rgb(0,0,0).
-        background-color: rgba(0,0,0,0.4).
-        padding-top: 60px.
+        display: none;
+        position: fixed;
+        z-index: 1;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgb(0,0,0);
+        background-color: rgba(0,0,0,0.4);
+        padding-top: 60px;
     }
     .modal-content {
-        background-color: #fefefe.
-        margin: 5% auto.
-        padding: 20px.
-        border: 1px solid #888.
-        width: 80%.
+        background-color: #fefefe;
+        margin: 5% auto;
+        padding: 20px;
+        border: 1px solid #888;
+        width: 80%;
     }
     .close {
-        color: #aaa.
-        float: right.
-        font-size: 28px.
-        font-weight: bold.
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
     }
     .close:hover,
     .close:focus {
-        color: black.
-        text-decoration: none.
-        cursor: pointer.
+        color: black;
+        text-decoration: none;
+        cursor: pointer;
     }
     </style>
     """,
