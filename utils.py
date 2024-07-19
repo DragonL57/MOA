@@ -197,7 +197,7 @@ def expand_query(conversation_history, current_query):
     return expanded_query
 
 def generate_search_query(conversation_history, current_query, language):
-    model = "google/gemma-2-9b-it"
+    model = "google/gemma-2-27b-it"
     
     system_prompt = f"""Bạn là một trợ lý AI chuyên nghiệp trong việc tạo query tìm kiếm. 
     Nhiệm vụ của bạn là phân tích lịch sử cuộc trò chuyện và câu hỏi hiện tại của người dùng, 
