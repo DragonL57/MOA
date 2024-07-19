@@ -42,7 +42,7 @@ default_reference_models = [
     "google/gemma-2-27b-it",
     "Qwen/Qwen1.5-72B",
     "Qwen/Qwen2-72B-Instruct",
-    "deepseek-ai/deepseek-llm-67b-chat",
+    "mistralai/Mixtral-8x7B-v0.1",
 ]
 
 # All available models
@@ -56,6 +56,7 @@ all_models = [
     "Qwen/Qwen1.5-72B",
     "microsoft/WizardLM-2-8x22B",
     "mistralai/Mixtral-8x22B-Instruct-v0.1",
+    "mistralai/Mixtral-8x7B-v0.1",
 ]
 
 # Pricing of each model per 1M tokens(in $)
@@ -70,6 +71,7 @@ model_pricing = {
     "Qwen/Qwen1.5-72B": 0.90,
     "Qwen/Qwen1.5-110B-Chat": 1.20,
     "deepseek-ai/deepseek-llm-67b-chat": 0.90,
+    "mistralai/Mixtral-8x7B-v0.1": 0.60,
 }
 vnd_per_usd = 24000  # Example conversion rate, update this with the actual rate
 
