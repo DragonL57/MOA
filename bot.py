@@ -258,6 +258,38 @@ def extract_url_from_prompt(prompt):
     url = url_pattern.search(prompt)
     return url.group(0) if url else None
 
+def generate_search_query(conversation_history, current_query, language):
+    model = "google/gemma-2-27b-it"
+    
+    system_prompt = f"""Bạn là một trợ lý AI chuyên nghiệp trong việc tạo query tìm kiếm. 
+    Nhiệm vụ của bạn là phân tích lịch sử cuộc trò chuyện và câu hỏi hiện tại của người dùng, 
+    sau đó tạo ra một query tìm kiếm ngắn gọn, chính xác và hiệu quả. 
+    Query này sẽ được sử dụng để tìm kiếm thông tin trên web.
+    Hãy đảm bảo query bao gồm các từ khóa quan trọng và bối cảnh cần thiết.
+    Tạo query bằng ngôn ngữ của câu hỏi người dùng: {language}."""
+
+    user_prompt = f"""Lịch sử cuộc trò chuyện:
+    {conversation_history}
+    
+    Câu hỏi hiện tại của người dùng:
+    {current_query}
+    
+    Hãy tạo một query tìm kiếm ngắn gọn và hiệu quả dựa trên thông tin trên."""
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt}
+    ]
+
+    generated_query, token_count = generate_together(
+        model=model,
+        messages=messages,
+        max_tokens=100,
+        temperature=0.7
+    )
+
+    return generated_query.strip(), token_count
+
 async def main_async():
     # Display welcome message
     st.markdown(welcome_message)
