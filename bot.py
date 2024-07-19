@@ -3,16 +3,18 @@ import json
 import datasets
 import threading
 import time
+import asyncio
+import uuid
 from langdetect import detect
 from functools import partial
 from loguru import logger
 from utils import (
     generate_together,
-    generate_with_references,
-    google_search,
+    generate_with_references_async,
+    google_search_async,
     extract_snippets,
     expand_query,
-    generate_search_query,
+    generate_search_query_async,
     DEBUG,
 )
 import streamlit as st
@@ -221,29 +223,26 @@ Made by Võ Mai Thế Long 👨‍🏫
 
 Powered by Together.ai
 """
-
-def process_fn(item, temperature=0.7, max_tokens=2048):
+async def process_fn(item, temperature=0.7, max_tokens=2048):
     references = item.get("references", [])
     model = item["model"]
     messages = item["instruction"]
 
-    output, token_count = generate_with_references(
+    output, token_count = await generate_with_references_async(
         model=model,
         messages=messages,
         references=references,
         temperature=temperature,
         max_tokens=max_tokens,
     )
-    
+
     cost_usd = (token_count / 1_000_000) * model_pricing.get(model, 0)
     cost_vnd = cost_usd * vnd_per_usd
 
     if DEBUG:
         logger.info(
-            f"model {model}, instruction {item['instruction']}, output {output[:20]}, tokens {token_count}, cost ${cost_usd:.6f}, cost {cost_vnd:.0f} VND",
+            f"Model {model} queried. Instruction: {item['instruction'][:20]}..., Output: {output[:20]}..., Tokens: {token_count}, Cost: ${cost_usd:.6f}, Cost: {cost_vnd:.0f} VND"
         )
-
-    st.write(f"Finished querying {model}. Tokens used: {token_count}, Cost: ${cost_usd:.6f}, Cost: {cost_vnd:.0f} VND")
 
     return {"output": output, "tokens": token_count, "cost_usd": cost_usd, "cost_vnd": cost_vnd}
 
@@ -259,45 +258,12 @@ def extract_url_from_prompt(prompt):
     url = url_pattern.search(prompt)
     return url.group(0) if url else None
 
-def generate_search_query(conversation_history, current_query, language):
-    model = "google/gemma-2-9b-it"
-    
-    system_prompt = f"""Bạn là một trợ lý AI chuyên nghiệp trong việc tạo query tìm kiếm. 
-    Nhiệm vụ của bạn là phân tích lịch sử cuộc trò chuyện và câu hỏi hiện tại của người dùng, 
-    sau đó tạo ra một query tìm kiếm ngắn gọn, chính xác và hiệu quả. 
-    Query này sẽ được sử dụng để tìm kiếm thông tin trên web.
-    Hãy đảm bảo query bao gồm các từ khóa quan trọng và bối cảnh cần thiết.
-    Tạo query bằng ngôn ngữ của câu hỏi người dùng: {language}."""
-
-    user_prompt = f"""Lịch sử cuộc trò chuyện:
-    {conversation_history}
-    
-    Câu hỏi hiện tại của người dùng:
-    {current_query}
-    
-    Hãy tạo một query tìm kiếm ngắn gọn và hiệu quả dựa trên thông tin trên."""
-
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_prompt}
-    ]
-
-    generated_query, token_count = generate_together(
-        model=model,
-        messages=messages,
-        max_tokens=100,
-        temperature=0.7
-    )
-
-    return generated_query.strip(), token_count
-
-def main():
+async def main_async():
     # Display welcome message
     st.markdown(welcome_message)
 
     # Sidebar for configuration
     with st.sidebar:
-
         # Custom border for Web Search and Additional System Instructions
         st.markdown('<div class="custom-border">', unsafe_allow_html=True)
         
@@ -392,22 +358,20 @@ def main():
         st.chat_message("user").markdown(prompt)
         st.session_state.messages.append({"role": "user", "content": prompt})
 
-        # Detect language of the user's input
         user_language = detect(prompt)
 
-        # Save first question of new conversation
-        if len(st.session_state.messages) == 2:  # First user message
+        if len(st.session_state.messages) == 2:
             st.session_state.conversations.append({
                 "first_question": prompt,
                 "messages": st.session_state.messages.copy()
             })
 
-        # Generate response
-        timer_placeholder = st.empty()
-        stop_event = threading.Event()
+        stop_event = threading.Event()  # Ensure stop_event is initialized before use
         elapsed_time = SharedValue()
         timer_thread = threading.Thread(target=run_timer, args=(stop_event, elapsed_time))
         timer_thread.start()
+
+        timer_placeholder = st.empty()
 
         start_time = time.time()
 
@@ -423,13 +387,13 @@ def main():
                 with st.spinner("Đang tìm kiếm trên web..."):
                     # Sử dụng hàm generate_search_query để tạo query
                     conversation_history = "\n".join([f"{msg['role']}: {msg['content']}" for msg in st.session_state.messages[:-1]])
-                    generated_query, search_query_token_count = generate_search_query(conversation_history, prompt, user_language)
+                    generated_query, search_query_token_count = generate_search_query_async(conversation_history, prompt, user_language)
                     
                     # Display the search query used
                     st.session_state.messages.append({"role": "system", "content": f"Search query: {generated_query}"})
                     st.chat_message("system").markdown(f"Search query: {generated_query}")
 
-                    search_results = google_search(generated_query, num_results=10)  # Increase number of search results
+                    search_results = google_search_async(generated_query, num_results=10)  # Increase number of search results
                     
                     # Kiểm tra nếu không có kết quả tìm kiếm
                     if 'items' not in search_results:
@@ -473,7 +437,7 @@ def main():
                     data["references"] = references
                     eval_set = datasets.Dataset.from_dict(data)
 
-                    output, response_token_count = generate_with_references(
+                    output, response_token_count = generate_with_references_async(
                         model=st.session_state.main_model,
                         temperature=temperature,
                         max_tokens=max_tokens,
@@ -520,12 +484,6 @@ def main():
                 st.session_state.messages.append({"role": "assistant", "content": f"Lỗi khi tìm kiếm trên web: {str(e)}"})
 
         else:
-            # Log main model and translation model
-            logger.info(f"Main model: {st.session_state.main_model}")
-
-            # Log selected models
-            logger.info(f"Selected models: {st.session_state.selected_models}")
-
             data = {
                 "instruction": [st.session_state.messages for _ in range(len(st.session_state.selected_models))],
                 "references": [[] for _ in range(len(st.session_state.selected_models))],
@@ -536,31 +494,29 @@ def main():
 
             try:
                 with st.spinner("Typing..."):
-                    for i_round in range(1):
-                        eval_set = eval_set.map(
-                            partial(
-                                process_fn,
-                                temperature=temperature,
-                                max_tokens=max_tokens,
-                            ),
-                            batched=False,
-                            num_proc=len(st.session_state.selected_models),
-                        )
-                        references = [item["output"] for item in eval_set]
-                        token_counts = [item["tokens"] for item in eval_set]
-                        cost_usd_list = [item["cost_usd"] for item in eval_set]
-                        cost_vnd_list = [item["cost_vnd"] for item in eval_set]
-                        
-                        total_tokens += sum(token_counts)
-                        total_cost_usd += sum(cost_usd_list)
-                        total_cost_vnd += sum(cost_vnd_list)
+                    tasks = []
+                    for item in eval_set:
+                        tasks.append(process_fn(item, temperature=temperature, max_tokens=max_tokens))
 
-                        data["references"] = references
-                        eval_set = datasets.Dataset.from_dict(data)
-                        # Update timer display
-                        timer_placeholder.markdown(f"⏳ **Elapsed time: {elapsed_time.get():.2f} seconds**")
+                    results = await asyncio.gather(*tasks)
+                    references = [result["output"] for result in results]
+                    token_counts = [result["tokens"] for result in results]
+                    cost_usd_list = [result["cost_usd"] for result in results]
+                    cost_vnd_list = [result["cost_vnd"] for result in results]
 
-                    output, response_token_count = generate_with_references(
+                    total_tokens = sum(token_counts)
+                    total_cost_usd = sum(cost_usd_list)
+                    total_cost_vnd = sum(cost_vnd_list)
+
+                    data["references"] = references
+                    eval_set = datasets.Dataset.from_dict(data)
+
+                    timer_placeholder.markdown(f"⏳ **Elapsed time: {elapsed_time.get():.2f} seconds**")
+
+                    # Log when the aggregator model is being queried
+                    logger.info(f"Querying aggregator model: {st.session_state.main_model}")
+
+                    output, response_token_count = await generate_with_references_async(
                         model=st.session_state.main_model,
                         temperature=temperature,
                         max_tokens=max_tokens,
@@ -585,26 +541,26 @@ def main():
                         else:
                             full_response += chunk
 
-                    # Display the translated response
                     with st.chat_message("assistant"):
                         st.markdown(full_response)
                         st.markdown(f"**Tokens used:** {total_tokens}, **Cost:** ${total_cost_usd:.6f}, **Cost:** {total_cost_vnd:.0f} VND")
-                    
+
                     st.session_state.messages.append({
-                        "role": "assistant", 
-                        "content": full_response, 
-                        "tokens": total_tokens, 
-                        "cost_usd": total_cost_usd, 
+                        "role": "assistant",
+                        "content": full_response,
+                        "tokens": total_tokens,
+                        "cost_usd": total_cost_usd,
                         "cost_vnd": total_cost_vnd
                     })
                     st.session_state.conversations[-1]['messages'] = st.session_state.messages.copy()
                     st.session_state.total_tokens += total_tokens
 
-                end_time = time.time()
-                duration = end_time - start_time
-                timer_placeholder.markdown(f"⏳ **Total elapsed time: {duration:.2f} seconds**")
-                logger.info(f"Response generated in {duration:.2f} seconds")
+                    end_time = time.time()
+                    duration = end_time - start_time
+                    timer_placeholder.markdown(f"⏳ **Total elapsed time: {duration:.2f} seconds**")
+                    logger.info(f"Response generated in {duration:.2f} seconds")
 
+                # Handle exceptions...
             except Exception as e:
                 st.error(f"An error occurred during the generation process: {str(e)}")
                 logger.error(f"Generation error: {str(e)}")
@@ -613,4 +569,4 @@ def main():
                 timer_thread.join()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main_async())
