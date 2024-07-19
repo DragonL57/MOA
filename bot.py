@@ -418,7 +418,7 @@ async def main_async():
                 with st.spinner("Đang tìm kiếm trên web..."):
                     # Sử dụng hàm generate_search_query để tạo query
                     conversation_history = "\n".join([f"{msg['role']}: {msg['content']}" for msg in st.session_state.messages[:-1]])
-                    generated_query, search_query_token_count = generate_search_query_async(conversation_history, prompt, user_language)
+                    generated_query, search_query_token_count = generate_search_query(conversation_history, prompt, user_language)
                     
                     # Display the search query used
                     st.session_state.messages.append({"role": "system", "content": f"Search query: {generated_query}"})
