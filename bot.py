@@ -223,9 +223,14 @@ Made by Võ Mai Thế Long 👨‍🏫
 Powered by Together.ai
 """
 async def process_fn(item, temperature=0.7, max_tokens=2048):
-    references = item.get("references", [])
-    model = item["model"]
-    messages = item["instruction"]
+    if isinstance(item, str):
+        model = item
+        references = []
+        messages = st.session_state.messages
+    else:
+        references = item.get("references", [])
+        model = item["model"]
+        messages = item["instruction"]
 
     output, token_count = await generate_with_references_async(
         model=model,
@@ -240,7 +245,7 @@ async def process_fn(item, temperature=0.7, max_tokens=2048):
 
     if DEBUG:
         logger.info(
-            f"Model {model} queried. Instruction: {item['instruction'][:20]}..., Output: {output[:20]}..., Tokens: {token_count}, Cost: ${cost_usd:.6f}, Cost: {cost_vnd:.0f} VND"
+            f"Model {model} queried. Instruction: {messages[-1]['content'][:20]}..., Output: {output[:20]}..., Tokens: {token_count}, Cost: ${cost_usd:.6f}, Cost: {cost_vnd:.0f} VND"
         )
 
     return {"output": output, "tokens": token_count, "cost_usd": cost_usd, "cost_vnd": cost_vnd}
@@ -257,7 +262,7 @@ def extract_url_from_prompt(prompt):
     url = url_pattern.search(prompt)
     return url.group(0) if url else None
 
-def generate_search_query(conversation_history, current_query, language):
+async def generate_search_query(conversation_history, current_query, language):
     model = "google/gemma-2-27b-it"
     
     system_prompt = f"""Bạn là một trợ lý AI chuyên nghiệp trong việc tạo query tìm kiếm. 
@@ -280,7 +285,7 @@ def generate_search_query(conversation_history, current_query, language):
         {"role": "user", "content": user_prompt}
     ]
 
-    generated_query, token_count = generate_together(
+    generated_query, token_count = await generate_together(
         model=model,
         messages=messages,
         max_tokens=100,
@@ -389,7 +394,7 @@ async def main_async():
         st.chat_message("user").markdown(prompt)
         st.session_state.messages.append({"role": "user", "content": prompt})
 
-        user_language = detect(prompt)
+        user_language = detect(prompt)  # Ensure this is assigned before it's used
 
         if len(st.session_state.messages) == 2:
             st.session_state.conversations.append({
@@ -412,19 +417,20 @@ async def main_async():
 
         if st.session_state.web_search_enabled:
             try:
-                st.session_state.messages[0]["content"] = web_search_prompt  # Update the system prompt for web search
+                if len(st.session_state.messages) > 0:
+                    st.session_state.messages[0]["content"] = web_search_prompt  # Update the system prompt for web search
                 st.session_state.messages.append({"role": "assistant", "content": "Đang tìm kiếm trên web..."})
 
                 with st.spinner("Đang tìm kiếm trên web..."):
                     # Sử dụng hàm generate_search_query để tạo query
                     conversation_history = "\n".join([f"{msg['role']}: {msg['content']}" for msg in st.session_state.messages[:-1]])
-                    generated_query, search_query_token_count = generate_search_query(conversation_history, prompt, user_language)
+                    generated_query, search_query_token_count = await generate_search_query(conversation_history, prompt, user_language)
                     
                     # Display the search query used
                     st.session_state.messages.append({"role": "system", "content": f"Search query: {generated_query}"})
                     st.chat_message("system").markdown(f"Search query: {generated_query}")
 
-                    search_results = google_search_async(generated_query, num_results=10)  # Increase number of search results
+                    search_results = await google_search_async(generated_query, num_results=10)
                     
                     # Kiểm tra nếu không có kết quả tìm kiếm
                     if 'items' not in search_results:
@@ -445,30 +451,25 @@ async def main_async():
                         "references": [[search_summary]] * len(st.session_state.selected_models),
                         "model": st.session_state.selected_models,
                     }
-                    eval_set = datasets.Dataset.from_dict(data)
-
-                    eval_set = eval_set.map(
-                        partial(
-                            process_fn,
-                            temperature=temperature,
-                            max_tokens=max_tokens,
-                        ),
-                        batched=False,
-                        num_proc=len(st.session_state.selected_models),
-                    )
-                    references = [item["output"] for item in eval_set]
-                    token_counts = [item["tokens"] for item in eval_set]
-                    cost_usd_list = [item["cost_usd"] for item in eval_set]
-                    cost_vnd_list = [item["cost_vnd"] for item in eval_set]
                     
-                    total_tokens += sum(token_counts)
-                    total_cost_usd += sum(cost_usd_list)
-                    total_cost_vnd += sum(cost_vnd_list)
+                    # Process items asynchronously
+                    tasks = [process_fn(model, temperature=temperature, max_tokens=max_tokens) 
+                            for model in st.session_state.selected_models]
+                    results = await asyncio.gather(*tasks)
+
+                    references = [result["output"] for result in results]
+                    token_counts = [result["tokens"] for result in results]
+                    cost_usd_list = [result["cost_usd"] for result in results]
+                    cost_vnd_list = [result["cost_vnd"] for result in results]
+                    
+                    total_tokens = sum(token_counts)
+                    total_cost_usd = sum(cost_usd_list)
+                    total_cost_vnd = sum(cost_vnd_list)
 
                     data["references"] = references
                     eval_set = datasets.Dataset.from_dict(data)
 
-                    output, response_token_count = generate_with_references_async(
+                    output, response_token_count = await generate_with_references_async(
                         model=st.session_state.main_model,
                         temperature=temperature,
                         max_tokens=max_tokens,
@@ -521,15 +522,14 @@ async def main_async():
                 "model": st.session_state.selected_models,
             }
 
-            eval_set = datasets.Dataset.from_dict(data)
-
             try:
                 with st.spinner("Typing..."):
-                    tasks = []
-                    for item in eval_set:
-                        tasks.append(process_fn(item, temperature=temperature, max_tokens=max_tokens))
-
+                    # Process items asynchronously
+                    tasks = [process_fn(model, temperature=temperature, max_tokens=max_tokens) 
+                            for model in st.session_state.selected_models]
+                    
                     results = await asyncio.gather(*tasks)
+
                     references = [result["output"] for result in results]
                     token_counts = [result["tokens"] for result in results]
                     cost_usd_list = [result["cost_usd"] for result in results]
@@ -538,7 +538,6 @@ async def main_async():
                     total_tokens = sum(token_counts)
                     total_cost_usd = sum(cost_usd_list)
                     total_cost_vnd = sum(cost_vnd_list)
-
                     data["references"] = references
                     eval_set = datasets.Dataset.from_dict(data)
 
