@@ -40,7 +40,7 @@ class SharedValue:
 
 # Updated default reference models
 default_reference_models = [
-    "google/gemma-2-27b-it",
+    "databricks/dbrx-instruct",
     "Qwen/Qwen1.5-72B",
     "Qwen/Qwen2-72B-Instruct",
     "meta-llama/Meta-Llama-3-70B-Instruct-Turbo",
@@ -49,6 +49,7 @@ default_reference_models = [
 # All available models
 all_models = [
     "deepseek-ai/deepseek-llm-67b-chat",
+    "databricks/dbrx-instruct",
     "google/gemma-2-27b-it",
     "Qwen/Qwen1.5-110B-Chat",
     "meta-llama/Llama-3-70b-chat-hf",
@@ -61,6 +62,7 @@ all_models = [
 
 # Pricing of each model per 1M tokens(in $)
 model_pricing = {
+    "databricks/dbrx-instruct": 1.20,
     "meta-llama/Llama-3-70b-chat-hf": 0.90,
     "Qwen/Qwen2-72B-Instruct": 0.90,
     "google/gemma-2-27b-it": 0.80,
@@ -76,8 +78,10 @@ vnd_per_usd = 25500  # Example conversion rate, update this with the actual rate
 
 # Max token options based on models
 max_token_options = {
+    "databricks/dbrx-instruct": 32768,
     "deepseek-ai/deepseek-llm-67b-chat": 4096,
     "google/gemma-2-27b-it": 8192,
+    "google/gemma-2-9b-it": 8192,
     "Qwen/Qwen1.5-110B-Chat": 32768,
     "meta-llama/Llama-3-70b-chat-hf": 8192,
     "meta-llama/Meta-Llama-3-70B-Instruct-Turbo": 8192,
