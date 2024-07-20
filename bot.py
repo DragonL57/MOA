@@ -572,7 +572,7 @@ async def main_async():
                     
                     # Process items asynchronously
                     tasks = [process_fn(model, temperature=temperature, max_tokens=st.session_state.max_tokens) 
-                            for model in st.session_state.main_models]
+                            for model in st.session_state.main_model]
                     results = await asyncio.gather(*tasks)
 
                     references = [result["output"] for result in results]
