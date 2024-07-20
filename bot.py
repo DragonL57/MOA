@@ -74,6 +74,7 @@ model_pricing = {
 }
 vnd_per_usd = 24000  # Example conversion rate, update this with the actual rate
 
+# Max token options based on models
 max_token_options = {
     "deepseek-ai/deepseek-llm-67b-chat": 4096,
     "google/gemma-2-27b-it": 8192,
@@ -163,6 +164,13 @@ if "chat_mode" not in st.session_state:
 
 if "show_popup" not in st.session_state:
     st.session_state.show_popup = True
+
+if "max_tokens" not in st.session_state:
+    st.session_state.max_tokens = 4096  # Set the default max tokens to 4096
+
+# Function to set max tokens based on selected model
+def set_max_tokens(selected_model):
+    return max_token_options.get(selected_model, 4096)
 
 # Set page configuration
 st.set_page_config(page_title="MoA Chatbot", page_icon="🤖", layout="wide")
@@ -382,9 +390,10 @@ async def main_async():
             )
             if main_model != st.session_state.main_model:
                 st.session_state.main_model = main_model
+                st.session_state.max_tokens = set_max_tokens(main_model)  # Update max tokens based on the selected model
 
             temperature = st.slider("Temperature", 0.0, 2.0, 0.5, 0.1)
-            max_tokens = st.slider("Max tokens", 1, 8192, 2048, 1)
+            max_tokens = st.slider("Max tokens", 1, st.session_state.max_tokens, 4096, 1)
 
             st.subheader("Reference Models")
             for ref_model in all_models:
@@ -402,7 +411,9 @@ async def main_async():
                 all_models,
                 index=all_models.index(st.session_state.main_model)
             )
-            st.session_state.main_model = selected_model
+            if selected_model != st.session_state.main_model:
+                st.session_state.main_model = selected_model
+                st.session_state.max_tokens = set_max_tokens(selected_model)  # Update max tokens based on the selected model
 
         # Start new conversation button
         if st.button("Start New Conversation", key="new_conversation"):
@@ -506,7 +517,7 @@ async def main_async():
                     }
                     
                     # Process items asynchronously
-                    tasks = [process_fn(model, temperature=temperature, max_tokens=max_tokens) 
+                    tasks = [process_fn(model, temperature=temperature, max_tokens=st.session_state.max_tokens) 
                             for model in st.session_state.selected_models]
                     results = await asyncio.gather(*tasks)
 
@@ -525,7 +536,7 @@ async def main_async():
                     output, response_token_count = await generate_with_references_async(
                         model=st.session_state.main_model,
                         temperature=temperature,
-                        max_tokens=max_tokens,
+                        max_tokens=st.session_state.max_tokens,
                         messages=st.session_state.messages,
                         references=references,
                         generate_fn=generate_together
@@ -552,7 +563,7 @@ async def main_async():
                         model=st.session_state.main_model,
                         messages=st.session_state.messages + [{"role": "system", "content": f"Web search results:\n{search_summary}"}],
                         temperature=temperature,
-                        max_tokens=max_tokens,
+                        max_tokens=st.session_state.max_tokens,
                         streaming=False
                     )
 
@@ -594,7 +605,7 @@ async def main_async():
                     }
                     with st.spinner("Typing..."):
                         # Process items asynchronously
-                        tasks = [process_fn(model, temperature=temperature, max_tokens=max_tokens) 
+                        tasks = [process_fn(model, temperature=temperature, max_tokens=st.session_state.max_tokens) 
                                 for model in st.session_state.selected_models]
                         
                         results = await asyncio.gather(*tasks)
@@ -616,7 +627,7 @@ async def main_async():
                         output, response_token_count = await generate_with_references_async(
                             model=st.session_state.main_model,
                             temperature=temperature,
-                            max_tokens=max_tokens,
+                            max_tokens=st.session_state.max_tokens,
                             messages=st.session_state.messages,
                             references=references,
                             generate_fn=generate_together
@@ -658,7 +669,7 @@ async def main_async():
                             model=st.session_state.main_model,
                             messages=st.session_state.messages,
                             temperature=temperature,
-                            max_tokens=max_tokens,
+                            max_tokens=st.session_state.max_tokens,
                             streaming=False
                         )
 
