@@ -17,7 +17,7 @@ nltk.download('stopwords')
 
 load_dotenv()
 
-DEBUG = int(os.environ.get("DEBUG", "0"))
+DEBUG = True
 
 @retry(wait=wait_exponential(multiplier=1, min=1, max=60), stop=stop_after_attempt(6))
 async def generate_together(
