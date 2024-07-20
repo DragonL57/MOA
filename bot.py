@@ -72,7 +72,7 @@ model_pricing = {
     "Qwen/Qwen1.5-110B-Chat": 1.20,
     "deepseek-ai/deepseek-llm-67b-chat": 0.90,
 }
-vnd_per_usd = 24000  # Example conversion rate, update this with the actual rate
+vnd_per_usd = 25500  # Example conversion rate, update this with the actual rate
 
 # Max token options based on models
 max_token_options = {
