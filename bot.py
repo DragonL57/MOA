@@ -277,7 +277,7 @@ def render_message(message):
         st.latex(match.group(1))
         message = message[end:]
 
-async def process_fn(item, temperature=0.7, max_tokens=2048):
+async def process_fn(item, temperature=0.7, max_tokens=4096):
     if isinstance(item, str):
         model = item
         references = []
@@ -562,6 +562,31 @@ async def main_async():
                             full_response += chunk
                             
                 else:  # Single model mode
+
+                    # Use the search summary to generate a final response using the main model
+                    data = {
+                        "instruction": [st.session_state.messages] * len(st.session_state.main_model),
+                        "references": [[search_summary]] * len(st.session_state.main_model),
+                        "model": st.session_state.main_model,
+                    }
+                    
+                    # Process items asynchronously
+                    tasks = [process_fn(model, temperature=temperature, max_tokens=st.session_state.max_tokens) 
+                            for model in st.session_state.main_models]
+                    results = await asyncio.gather(*tasks)
+
+                    references = [result["output"] for result in results]
+                    token_counts = [result["tokens"] for result in results]
+                    cost_usd_list = [result["cost_usd"] for result in results]
+                    cost_vnd_list = [result["cost_vnd"] for result in results]
+                    
+                    total_tokens = sum(token_counts)
+                    total_cost_usd = sum(cost_usd_list)
+                    total_cost_vnd = sum(cost_vnd_list)
+
+                    data["references"] = references
+                    eval_set = datasets.Dataset.from_dict(data)
+
                     output, response_token_count = await generate_together(
                         model=st.session_state.main_model,
                         messages=st.session_state.messages + [{"role": "system", "content": f"Web search results:\n{search_summary}"}],
