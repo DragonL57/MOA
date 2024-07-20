@@ -25,7 +25,7 @@ async def generate_together(
     messages,
     max_tokens=2048,
     temperature=0.7,
-    streaming=True,
+    streaming=False,
 ):
     output = None
     token_count = 0
@@ -51,21 +51,35 @@ async def generate_together(
                     "max_tokens": max_tokens,
                     "temperature": (temperature if temperature > 1e-4 else 0),
                     "messages": messages,
+                    "stream": streaming,
                 },
                 headers={
                     "Authorization": f"Bearer {api_key}",
                 },
             ) as res:
                 res.raise_for_status()
-                response = await res.json()
-                if "error" in response:
-                    logger.error(response)
-                    if response["error"]["type"] == "invalid_request_error":
-                        logger.info("Input + output is longer than max_position_id.")
-                        return None, token_count
+                if streaming:
 
-                output = response["choices"][0]["message"]["content"]
-                token_count = response["usage"]["total_tokens"]
+                    response = await res.json()
+                    if "error" in response:
+                        logger.error(response)
+                        if response["error"]["type"] == "invalid_request_error":
+                            logger.info("Input + output is longer than max_position_id.")
+                            return None, token_count
+
+                    output = response["choices"][0]["message"]["content"]
+                    token_count = response["usage"]["total_tokens"]
+
+                else:
+                    response = await res.json()
+                    if "error" in response:
+                        logger.error(response)
+                        if response["error"]["type"] == "invalid_request_error":
+                            logger.info("Input + output is longer than max_position_id.")
+                            return None, token_count
+
+                    output = response["choices"][0]["message"]["content"]
+                    token_count = response["usage"]["total_tokens"]
 
     except aiohttp.ClientError as e:
         logger.error(f"Client error: {e}")
