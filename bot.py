@@ -265,6 +265,18 @@ def show_mode_selection_popup():
                     st.session_state.show_popup = False
                     st.experimental_rerun()
 
+# Function to render messages with LaTeX
+def render_message(message):
+    latex_pattern = r'\$\$(.*?)\$\$'  # Regex pattern to detect LaTeX expressions enclosed in $$
+    matches = re.finditer(latex_pattern, message, re.DOTALL)
+
+    start = 0
+    for match in matches:
+        start, end = match.span()
+        st.markdown(message[:start])
+        st.latex(match.group(1))
+        message = message[end:]
+
 async def process_fn(item, temperature=0.7, max_tokens=2048):
     if isinstance(item, str):
         model = item
