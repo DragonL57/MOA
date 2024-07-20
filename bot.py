@@ -74,6 +74,18 @@ model_pricing = {
 }
 vnd_per_usd = 24000  # Example conversion rate, update this with the actual rate
 
+max_token_options = {
+    "deepseek-ai/deepseek-llm-67b-chat": 4096,
+    "google/gemma-2-27b-it": 8192,
+    "Qwen/Qwen1.5-110B-Chat": 32768,
+    "meta-llama/Llama-3-70b-chat-hf": 8192,
+    "meta-llama/Meta-Llama-3-70B-Instruct-Turbo": 8192,
+    "Qwen/Qwen2-72B-Instruct": 32768,
+    "Qwen/Qwen1.5-72B": 32768,
+    "microsoft/WizardLM-2-8x22B": 65536,
+    "mistralai/Mixtral-8x22B-Instruct-v0.1": 65536,
+}
+
 # Default system prompt
 default_system_prompt = """Bạn là một trợ lý AI chuyên nghiệp với kiến thức sâu rộng. Khi trả lời các câu hỏi của người dùng, hãy đảm bảo:
 1. Câu trả lời chính xác, dựa trên dữ liệu và đáng tin cậy.
@@ -137,12 +149,6 @@ if "conversations" not in st.session_state:
 if "conversation_deleted" not in st.session_state:
     st.session_state.conversation_deleted = False
 
-if "show_modal" not in st.session_state:
-    st.session_state.show_modal = False
-
-if "edit_gpt_index" not in st.session_state:
-    st.session_state.edit_gpt_index = None
-
 if "web_search_enabled" not in st.session_state:
     st.session_state.web_search_enabled = False
 
@@ -151,6 +157,12 @@ if "main_model" not in st.session_state:
 
 if "total_tokens" not in st.session_state:
     st.session_state.total_tokens = 0
+
+if "chat_mode" not in st.session_state:
+    st.session_state.chat_mode = None
+
+if "show_popup" not in st.session_state:
+    st.session_state.show_popup = True
 
 # Set page configuration
 st.set_page_config(page_title="MoA Chatbot", page_icon="🤖", layout="wide")
@@ -224,6 +236,22 @@ Made by Võ Mai Thế Long 👨‍🏫
 
 Powered by Together.ai
 """
+
+def show_mode_selection_popup():
+    if st.session_state.show_popup:
+        with st.container():
+            st.markdown("### Choose Chat Mode")
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("MoA (Mixture-of-Agents)"):
+                    st.session_state.chat_mode = "moa"
+                    st.session_state.show_popup = False
+                    st.experimental_rerun()
+            with col2:
+                if st.button("Single Model"):
+                    st.session_state.chat_mode = "single"
+                    st.session_state.show_popup = False
+                    st.experimental_rerun()
 
 # Function to render messages with LaTeX
 def render_message(message):
@@ -314,11 +342,16 @@ async def main_async():
     # Display welcome message
     st.markdown(welcome_message)
 
+    # Show mode selection popup if mode hasn't been chosen
+    if st.session_state.chat_mode is None:
+        show_mode_selection_popup()
+        return
+    
     # Sidebar for configuration
     with st.sidebar:
         # Custom border for Web Search and Additional System Instructions
         st.markdown('<div class="custom-border">', unsafe_allow_html=True)
-        
+
         st.header("Web Search")
         web_search_enabled = st.checkbox("Enable Web Search", value=st.session_state.web_search_enabled)
         if web_search_enabled != st.session_state.web_search_enabled:
@@ -340,6 +373,7 @@ async def main_async():
         st.header("Model Settings")
         
         with st.expander("Configuration", expanded=False):
+            
             # Select main model
             main_model = st.selectbox(
                 "Main model (aggregator model)",
@@ -360,6 +394,15 @@ async def main_async():
                 else:
                     if ref_model in st.session_state.selected_models:
                         st.session_state.selected_models.remove(ref_model)
+
+        if st.session_state.chat_mode == "single":
+            st.header("Single Model Selection")
+            selected_model = st.selectbox(
+                "Choose a model",
+                all_models,
+                index=all_models.index(st.session_state.main_model)
+            )
+            st.session_state.main_model = selected_model
 
         # Start new conversation button
         if st.button("Start New Conversation", key="new_conversation"):
@@ -410,22 +453,13 @@ async def main_async():
         st.chat_message("user").markdown(prompt)
         st.session_state.messages.append({"role": "user", "content": prompt})
 
-        user_language = detect(prompt)  # Ensure this is assigned before it's used
+        user_language = detect(prompt)
 
         if len(st.session_state.messages) == 2:
             st.session_state.conversations.append({
                 "first_question": prompt,
                 "messages": st.session_state.messages.copy()
             })
-
-        stop_event = threading.Event()  # Ensure stop_event is initialized before use
-        elapsed_time = SharedValue()
-        timer_thread = threading.Thread(target=run_timer, args=(stop_event, elapsed_time))
-        timer_thread.start()
-
-        timer_placeholder = st.empty()
-
-        start_time = time.time()
 
         total_tokens = 0
         total_cost_usd = 0
@@ -460,6 +494,9 @@ async def main_async():
                     logger.info(f"Search sources: {sources}")
                     
                     search_summary = "\n\n".join(snippets)
+
+                # Use the search summary to generate a final response
+                if st.session_state.chat_mode == "moa":
 
                     # Use the search summary to generate a final response using the main model
                     data = {
@@ -509,7 +546,24 @@ async def main_async():
                                     full_response += choice["delta"]["content"]
                         else:
                             full_response += chunk
+                            
+                else:  # Single model mode
+                    output, response_token_count = await generate_together(
+                        model=st.session_state.main_model,
+                        messages=st.session_state.messages + [{"role": "system", "content": f"Web search results:\n{search_summary}"}],
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        streaming=False
+                    )
 
+                    response_cost_usd = (response_token_count / 1_000_000) * model_pricing.get(st.session_state.main_model, 0)
+                    response_cost_vnd = response_cost_usd * vnd_per_usd
+
+                    total_tokens += response_token_count
+                    total_cost_usd += response_cost_usd
+                    total_cost_vnd += response_cost_vnd
+
+                    full_response = output
                     # Display the translated response with sources
                     formatted_response = full_response
 
@@ -530,89 +584,112 @@ async def main_async():
             except Exception as e:
                 logger.error(f"Error during web search: {str(e)}")
                 st.session_state.messages.append({"role": "assistant", "content": f"Lỗi khi tìm kiếm trên web: {str(e)}"})
-
         else:
-            data = {
-                "instruction": [st.session_state.messages for _ in range(len(st.session_state.selected_models))],
-                "references": [[] for _ in range(len(st.session_state.selected_models))],
-                "model": st.session_state.selected_models,
-            }
-
             try:
-                with st.spinner("Typing..."):
-                    # Process items asynchronously
-                    tasks = [process_fn(model, temperature=temperature, max_tokens=max_tokens) 
-                            for model in st.session_state.selected_models]
-                    
-                    results = await asyncio.gather(*tasks)
+                if st.session_state.chat_mode == "moa":
+                    data = {
+                        "instruction": [st.session_state.messages for _ in range(len(st.session_state.selected_models))],
+                        "references": [[] for _ in range(len(st.session_state.selected_models))],
+                        "model": st.session_state.selected_models,
+                    }
+                    with st.spinner("Typing..."):
+                        # Process items asynchronously
+                        tasks = [process_fn(model, temperature=temperature, max_tokens=max_tokens) 
+                                for model in st.session_state.selected_models]
+                        
+                        results = await asyncio.gather(*tasks)
 
-                    references = [result["output"] for result in results]
-                    token_counts = [result["tokens"] for result in results]
-                    cost_usd_list = [result["cost_usd"] for result in results]
-                    cost_vnd_list = [result["cost_vnd"] for result in results]
+                        references = [result["output"] for result in results]
+                        token_counts = [result["tokens"] for result in results]
+                        cost_usd_list = [result["cost_usd"] for result in results]
+                        cost_vnd_list = [result["cost_vnd"] for result in results]
 
-                    total_tokens = sum(token_counts)
-                    total_cost_usd = sum(cost_usd_list)
-                    total_cost_vnd = sum(cost_vnd_list)
-                    data["references"] = references
-                    eval_set = datasets.Dataset.from_dict(data)
+                        total_tokens = sum(token_counts)
+                        total_cost_usd = sum(cost_usd_list)
+                        total_cost_vnd = sum(cost_vnd_list)
+                        data["references"] = references
+                        eval_set = datasets.Dataset.from_dict(data)
 
-                    timer_placeholder.markdown(f"⏳ **Elapsed time: {elapsed_time.get():.2f} seconds**")
+                        # Log when the aggregator model is being queried
+                        logger.info(f"Querying aggregator model: {st.session_state.main_model}")
 
-                    # Log when the aggregator model is being queried
-                    logger.info(f"Querying aggregator model: {st.session_state.main_model}")
+                        output, response_token_count = await generate_with_references_async(
+                            model=st.session_state.main_model,
+                            temperature=temperature,
+                            max_tokens=max_tokens,
+                            messages=st.session_state.messages,
+                            references=references,
+                            generate_fn=generate_together
+                        )
 
-                    output, response_token_count = await generate_with_references_async(
-                        model=st.session_state.main_model,
-                        temperature=temperature,
-                        max_tokens=max_tokens,
-                        messages=st.session_state.messages,
-                        references=references,
-                        generate_fn=generate_together
-                    )
+                        response_cost_usd = (response_token_count / 1_000_000) * model_pricing.get(st.session_state.main_model, 0)
+                        response_cost_vnd = response_cost_usd * vnd_per_usd
 
-                    response_cost_usd = (response_token_count / 1_000_000) * model_pricing.get(st.session_state.main_model, 0)
-                    response_cost_vnd = response_cost_usd * vnd_per_usd
+                        total_tokens += response_token_count
+                        total_cost_usd += response_cost_usd
+                        total_cost_vnd += response_cost_vnd
 
-                    total_tokens += response_token_count
-                    total_cost_usd += response_cost_usd
-                    total_cost_vnd += response_cost_vnd
+                        full_response = ""
+                        for chunk in output:
+                            if isinstance(chunk, dict) and "choices" in chunk:
+                                for choice in chunk["choices"]:
+                                    if "delta" in choice and "content" in choice["delta"]:
+                                        full_response += choice["delta"]["content"]
+                            else:
+                                full_response += chunk
 
-                    full_response = ""
-                    for chunk in output:
-                        if isinstance(chunk, dict) and "choices" in chunk:
-                            for choice in chunk["choices"]:
-                                if "delta" in choice and "content" in choice["delta"]:
-                                    full_response += choice["delta"]["content"]
-                        else:
-                            full_response += chunk
+                        with st.chat_message("assistant"):
+                            render_message(full_response)
+                            st.markdown(f"**Tokens used:** {total_tokens}, **Cost:** ${total_cost_usd:.6f}, **Cost:** {total_cost_vnd:.0f} VND")
 
-                    with st.chat_message("assistant"):
-                        render_message(full_response)
-                        st.markdown(f"**Tokens used:** {total_tokens}, **Cost:** ${total_cost_usd:.6f}, **Cost:** {total_cost_vnd:.0f} VND")
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": full_response,
+                            "tokens": total_tokens,
+                            "cost_usd": total_cost_usd,
+                            "cost_vnd": total_cost_vnd
+                        })
+                        st.session_state.conversations[-1]['messages'] = st.session_state.messages.copy()
+                        st.session_state.total_tokens += total_tokens
 
-                    st.session_state.messages.append({
-                        "role": "assistant",
-                        "content": full_response,
-                        "tokens": total_tokens,
-                        "cost_usd": total_cost_usd,
-                        "cost_vnd": total_cost_vnd
-                    })
-                    st.session_state.conversations[-1]['messages'] = st.session_state.messages.copy()
-                    st.session_state.total_tokens += total_tokens
+                else:  # Single model mode
+                    with st.spinner("Typing..."):
+                        output, response_token_count = await generate_together(
+                            model=st.session_state.main_model,
+                            messages=st.session_state.messages,
+                            temperature=temperature,
+                            max_tokens=max_tokens,
+                            streaming=False
+                        )
 
-                    end_time = time.time()
-                    duration = end_time - start_time
-                    timer_placeholder.markdown(f"⏳ **Total elapsed time: {duration:.2f} seconds**")
-                    logger.info(f"Response generated in {duration:.2f} seconds")
+                        response_cost_usd = (response_token_count / 1_000_000) * model_pricing.get(st.session_state.main_model, 0)
+                        response_cost_vnd = response_cost_usd * vnd_per_usd
 
-                # Handle exceptions...
+                        total_tokens += response_token_count
+                        total_cost_usd += response_cost_usd
+                        total_cost_vnd += response_cost_vnd
+
+                        full_response = output
+
+                        with st.chat_message("assistant"):
+                            render_message(full_response)
+                            st.markdown(f"**Tokens used:** {total_tokens}, **Cost:** ${total_cost_usd:.6f}, **Cost:** {total_cost_vnd:.0f} VND")
+
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": full_response,
+                            "tokens": total_tokens,
+                            "cost_usd": total_cost_usd,
+                            "cost_vnd": total_cost_vnd
+                        })
+                        st.session_state.conversations[-1]['messages'] = st.session_state.messages.copy()
+                        st.session_state.total_tokens += total_tokens
+
+                        # Handle exceptions...
             except Exception as e:
                 st.error(f"An error occurred during the generation process: {str(e)}")
                 logger.error(f"Generation error: {str(e)}")
-            finally:
-                stop_event.set()
-                timer_thread.join()
+
 
 if __name__ == "__main__":
     asyncio.run(main_async())
