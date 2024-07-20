@@ -96,8 +96,7 @@ async def gather_responses(models, messages, max_tokens, temperature):
         return responses
 
 def inject_references_to_messages(messages, references):
-    messages = copy.deepcopy(messages)
-    system = """Bạn đã nhận được nhiều phản hồi từ các mô hình mã nguồn mở khác nhau cho truy vấn mới nhất. Nhiệm vụ của bạn là tổng hợp các phản hồi này thành một câu trả lời duy nhất, chất lượng cao. Hãy đánh giá kỹ lưỡng thông tin, nhận ra rằng một số có thể thiên vị hoặc sai lầm. Đừng sao chép nguyên văn mà hãy cung cấp một câu trả lời tinh chỉnh, chính xác và toàn diện. Đảm bảo câu trả lời của bạn được cấu trúc tốt, mạch lạc, và chính xác.
+    system = """Bạn đã nhận được nhiều phản hồi từ các mô hình mã nguồn mở khác nhau cho truy vấn mới nhất. Nhiệm vụ của bạn là tổng hợp các phản hồi này thành một câu trả lời duy nhất, chất lượng cao. Hãy đánh giá kỹ lưỡng thông tin, nhận ra rằng một số có thể thiên vị hoặc sai lầm. Đừng sao chép nguyên văn mà hãy cung cấp một câu trả lời tinh chỉnh, chính xác và toàn diện. Đảm bảo câu trả lời của bạn được cấu trúc tốt, mạch lạc, và chính xác. Đối với các công thức toán học hoặc các biểu thức kỹ thuật, hãy đảm bảo rằng chúng được bao quanh bởi ký tự $$ để hiển thị đúng định dạng LaTeX.
 
 Các câu trả lời từ các mô hình:"""
     
