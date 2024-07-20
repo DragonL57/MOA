@@ -276,7 +276,6 @@ def render_message(message):
         st.markdown(message[:start])
         st.latex(match.group(1))
         message = message[end:]
-    st.markdown(message)  # Render any remaining part of the message
 
 async def process_fn(item, temperature=0.7, max_tokens=2048):
     if isinstance(item, str):
