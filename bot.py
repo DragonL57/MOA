@@ -5,6 +5,7 @@ import threading
 import time
 import asyncio
 import uuid
+import re
 from langdetect import detect
 from functools import partial
 from loguru import logger
@@ -80,6 +81,7 @@ default_system_prompt = """Bạn là một trợ lý AI chuyên nghiệp với k
 3. Thông tin ngắn gọn nhưng đầy đủ.
 4. Đưa ra các ví dụ cụ thể khi phù hợp.
 5. Sử dụng ngôn ngữ đơn giản, tránh thuật ngữ kỹ thuật phức tạp trừ khi được yêu cầu.
+6. Đối với các công thức toán học hoặc các biểu thức kỹ thuật, hãy đảm bảo rằng chúng được bao quanh bởi ký tự $$ để hiển thị đúng định dạng LaTeX.
 Nếu thông tin không chắc chắn, hãy làm rõ điều đó.
 """
 
@@ -222,6 +224,20 @@ Made by Võ Mai Thế Long 👨‍🏫
 
 Powered by Together.ai
 """
+
+# Function to render messages with LaTeX
+def render_message(message):
+    latex_pattern = r'\$\$(.*?)\$\$'  # Regex pattern to detect LaTeX expressions enclosed in $$
+    matches = re.finditer(latex_pattern, message, re.DOTALL)
+
+    start = 0
+    for match in matches:
+        start, end = match.span()
+        st.markdown(message[:start])
+        st.latex(match.group(1))
+        message = message[end:]
+    st.markdown(message)  # Render any remaining part of the message
+
 async def process_fn(item, temperature=0.7, max_tokens=2048):
     if isinstance(item, str):
         model = item
@@ -385,7 +401,7 @@ async def main_async():
     # Display chat messages from history on app rerun
     for message in st.session_state.messages[1:]:  # Skip the system message
         with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+            render_message(message["content"])
             if "tokens" in message and "cost_usd" in message and "cost_vnd" in message:
                 st.markdown(f"**Tokens used:** {message['tokens']}, **Cost:** ${message['cost_usd']:.6f}, **Cost:** {message['cost_vnd']:.0f} VND")
 
@@ -498,7 +514,7 @@ async def main_async():
                     formatted_response = full_response
 
                     with st.chat_message("assistant"):
-                        st.markdown(formatted_response)
+                        render_message(formatted_response)
                         st.markdown(f"**Tokens used:** {total_tokens}, **Cost:** ${total_cost_usd:.6f}, **Cost:** {total_cost_vnd:.0f} VND")
                     
                     st.session_state.messages.append({
@@ -572,7 +588,7 @@ async def main_async():
                             full_response += chunk
 
                     with st.chat_message("assistant"):
-                        st.markdown(full_response)
+                        render_message(full_response)
                         st.markdown(f"**Tokens used:** {total_tokens}, **Cost:** ${total_cost_usd:.6f}, **Cost:** {total_cost_vnd:.0f} VND")
 
                     st.session_state.messages.append({
