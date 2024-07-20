@@ -43,6 +43,7 @@ default_reference_models = [
     "databricks/dbrx-instruct",
     "Qwen/Qwen1.5-72B",
     "Qwen/Qwen2-72B-Instruct",
+    "google/gemma-2-27b-it",
     "meta-llama/Meta-Llama-3-70B-Instruct-Turbo",
 ]
 
