@@ -569,20 +569,6 @@ async def main_async():
                         "references": [[search_summary]] * len(st.session_state.main_model),
                         "model": st.session_state.main_model,
                     }
-                    
-                    # Process items asynchronously
-                    tasks = [process_fn(model, temperature=temperature, max_tokens=st.session_state.max_tokens) 
-                            for model in st.session_state.main_model]
-                    results = await asyncio.gather(*tasks)
-
-                    references = [result["output"] for result in results]
-                    token_counts = [result["tokens"] for result in results]
-                    cost_usd_list = [result["cost_usd"] for result in results]
-                    cost_vnd_list = [result["cost_vnd"] for result in results]
-                    
-                    total_tokens = sum(token_counts)
-                    total_cost_usd = sum(cost_usd_list)
-                    total_cost_vnd = sum(cost_vnd_list)
 
                     data["references"] = references
                     eval_set = datasets.Dataset.from_dict(data)
