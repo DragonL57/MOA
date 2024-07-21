@@ -317,7 +317,7 @@ def render_message(message, class_name=""):
             # LaTeX part
             st.latex(part)
 
-async def process_fn(item, temperature=0.7, max_tokens=2048):
+async def process_fn(item, temperature=0.7, max_tokens=8192):
     if isinstance(item, str):
         model = item
         references = []
@@ -524,7 +524,7 @@ async def main_async():
                 st.session_state.main_model = main_model
 
             temperature = st.slider("Temperature", 0.0, 2.0, 0.7, 0.1)
-            max_tokens = st.slider("Max tokens", 1, 8192, 2048, 1)
+            max_tokens = st.slider("Max tokens", 1, 8192, 8192, 1)
 
             st.subheader("Reference Models")
             for ref_model in all_models:
