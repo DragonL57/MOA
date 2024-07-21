@@ -370,6 +370,14 @@ def sign_in_form():
         else:
             st.sidebar.error("Failed to create account")
 
+def delete_conversation(index):
+    if st.session_state.user:
+        user_conversations = get_user_conversations(st.session_state.user.uid)
+        del user_conversations[index]
+        store_conversation(st.session_state.user.uid, user_conversations)
+        st.session_state.conversations = user_conversations
+        st.session_state.needs_rerun = True
+
 async def main_async():
     st.markdown(welcome_message)
 
@@ -417,7 +425,7 @@ async def main_async():
                 st.session_state.main_model = main_model
 
             temperature = st.slider("Temperature", 0.0, 2.0, 0.7, 0.1)
-            max_tokens = st.slider("Max tokens", 1, 32768, 8192, 1)
+            max_tokens = st.slider("Max tokens", 1, 8192, 2048, 1)
 
             st.subheader("Reference Models")
             for ref_model in all_models:
