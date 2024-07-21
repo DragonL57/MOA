@@ -264,13 +264,13 @@ st.markdown(
         margin-bottom: 0.5rem;
     }
     .small-message .stChatMessage {
-        font-size: 0.8rem;
+        font-size: 1.0rem;
         padding: 0.25rem 0.5rem;
         margin-bottom: 0.25rem;
     }
     .stAlert { display: none; }  /* Hide all Streamlit alerts */
     .title {
-        font-size: 1.0rem;  /* Adjust the size as needed */
+        font-size: 1.2rem;  /* Adjust the size as needed */
     }
     </style>
     """,
