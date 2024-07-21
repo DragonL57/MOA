@@ -17,7 +17,7 @@ nltk.download('stopwords')
 
 load_dotenv()
 
-DEBUG = True
+DEBUG = int(os.environ.get("DEBUG", "0"))
 
 @retry(wait=wait_exponential(multiplier=1, min=1, max=60), stop=stop_after_attempt(6))
 async def generate_together(
@@ -25,7 +25,7 @@ async def generate_together(
     messages,
     max_tokens=2048,
     temperature=0.7,
-    streaming=False,
+    streaming=True,
 ):
     output = None
     token_count = 0
@@ -51,35 +51,21 @@ async def generate_together(
                     "max_tokens": max_tokens,
                     "temperature": (temperature if temperature > 1e-4 else 0),
                     "messages": messages,
-                    "stream": streaming,
                 },
                 headers={
                     "Authorization": f"Bearer {api_key}",
                 },
             ) as res:
                 res.raise_for_status()
-                if streaming:
+                response = await res.json()
+                if "error" in response:
+                    logger.error(response)
+                    if response["error"]["type"] == "invalid_request_error":
+                        logger.info("Input + output is longer than max_position_id.")
+                        return None, token_count
 
-                    response = await res.json()
-                    if "error" in response:
-                        logger.error(response)
-                        if response["error"]["type"] == "invalid_request_error":
-                            logger.info("Input + output is longer than max_position_id.")
-                            return None, token_count
-
-                    output = response["choices"][0]["message"]["content"]
-                    token_count = response["usage"]["total_tokens"]
-
-                else:
-                    response = await res.json()
-                    if "error" in response:
-                        logger.error(response)
-                        if response["error"]["type"] == "invalid_request_error":
-                            logger.info("Input + output is longer than max_position_id.")
-                            return None, token_count
-
-                    output = response["choices"][0]["message"]["content"]
-                    token_count = response["usage"]["total_tokens"]
+                output = response["choices"][0]["message"]["content"]
+                token_count = response["usage"]["total_tokens"]
 
     except aiohttp.ClientError as e:
         logger.error(f"Client error: {e}")
