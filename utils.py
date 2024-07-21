@@ -23,7 +23,7 @@ DEBUG = True
 async def generate_together(
     model,
     messages,
-    max_tokens=2048,
+    max_tokens=8192,
     temperature=0.7,
     streaming=False,
 ):
@@ -53,14 +53,6 @@ async def generate_together(
             "messages": messages,
             "stream": streaming,
         }
-
-        # Model-specific adjustments
-        if "gemma" in model.lower():
-            payload["messages"] = [{"role": m["role"], "content": m["content"]} for m in messages]
-        elif "qwen" in model.lower():
-            payload["max_tokens"] = min(max_tokens, 4096)
-        elif "databricks" in model.lower():
-            payload["max_tokens"] = min(max_tokens, 32768)
 
         if DEBUG:
             logger.debug(f"Request payload: {json.dumps(payload, indent=2, default=str)}")
@@ -130,7 +122,7 @@ async def generate_with_references_async(
     model,
     messages,
     references=[],
-    max_tokens=2048,
+    max_tokens=8192,
     temperature=0.7,
     generate_fn=generate_together,
 ):
