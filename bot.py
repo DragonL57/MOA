@@ -27,6 +27,49 @@ from auth import create_user, sign_in_user, store_conversation, get_user_convers
 
 load_dotenv()
 
+# Set page configuration
+st.set_page_config(page_title="MoA Chatbot", page_icon="🤖", layout="wide")
+
+# JavaScript code for local storage
+local_storage_js = """
+<script>
+function setItem(key, value) {
+    localStorage.setItem(key, value);
+}
+
+function getItem(key) {
+    return localStorage.getItem(key);
+}
+
+function removeItem(key) {
+    localStorage.removeItem(key);
+}
+
+function clear() {
+    localStorage.clear();
+}
+
+function getAllKeys() {
+    var keys = [];
+    for (var i = 0; i < localStorage.length; i++) {
+        keys.push(localStorage.key(i));
+    }
+    return keys;
+}
+
+function getAuthInfo() {
+    return JSON.stringify({
+        email: localStorage.getItem('email'),
+        password: localStorage.getItem('password')
+    });
+}
+
+document.getElementById("auth-info").textContent = getAuthInfo();
+</script>
+"""
+
+st.components.v1.html(local_storage_js + '<div id="auth-info"></div>', height=0)
+
 class SharedValue:
     def __init__(self, initial_value=0.0):
         self.value = initial_value
@@ -174,9 +217,6 @@ if "user" not in st.session_state:
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
-# Set page configuration
-st.set_page_config(page_title="MoA Chatbot", page_icon="🤖", layout="wide")
-
 # Custom CSS
 st.markdown(
     """
@@ -234,12 +274,12 @@ st.markdown(
         cursor: pointer.
     }
     .tight-spacing .stChatMessage {
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.5rem.
     }
     .small-message .stChatMessage {
-        font-size: 0.8rem;
-        padding: 0.25rem 0.5rem;
-        margin-bottom: 0.25rem;
+        font-size: 0.8rem.
+        padding: 0.25rem 0.5rem.
+        margin-bottom: 0.25rem.
     }
     </style>
     """,
@@ -365,6 +405,12 @@ def sign_in(email, password):
         st.session_state.email = email
         st.session_state.password = password
         st.session_state.authenticated = True
+        st.components.v1.html(f"""
+            <script>
+                setItem("email", "{email}");
+                setItem("password", "{password}");
+            </script>
+        """, height=0)
         return True
     return False
 
@@ -376,6 +422,12 @@ def register(email, password):
         st.session_state.email = email
         st.session_state.password = password
         st.session_state.authenticated = True
+        st.components.v1.html(f"""
+            <script>
+                setItem("email", "{email}");
+                setItem("password", "{password}");
+            </script>
+        """, height=0)
         return True
     return False
 
@@ -416,8 +468,20 @@ async def main_async():
 
     # Check for auto sign-in
     if not st.session_state.authenticated:
-        if "email" in st.session_state and "password" in st.session_state:
-            if not sign_in(st.session_state.email, st.session_state.password):
+        auth_info = st.components.v1.html(local_storage_js + """
+            <script>
+                document.getElementById("auth-info").textContent = getAuthInfo();
+            </script>
+            <div id="auth-info"></div>
+        """, height=0)
+
+        auth_info_json = st.session_state.get("auth_info", "{}")
+        auth_info = json.loads(auth_info_json)
+        email = auth_info.get("email")
+        password = auth_info.get("password")
+        
+        if email and password:
+            if not sign_in(email, password):
                 st.sidebar.error("Auto sign-in failed. Please sign in manually.")
                 auth_form()
         else:
@@ -567,7 +631,6 @@ async def main_async():
                         
                         # Display the search query used
                         st.session_state.messages.append({"role": "system", "content": f"Search query: {generated_query}"})
-
 
                         st.chat_message("system").markdown(f"Search query: {generated_query}", unsafe_allow_html=True)
 
