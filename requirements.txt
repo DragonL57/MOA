@@ -13,3 +13,4 @@ datasets
 openpyxl
 nltk
 ratelimit
+firebase_admin
