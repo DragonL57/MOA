@@ -220,6 +220,9 @@ if "authenticated" not in st.session_state:
 if "current_conversation_index" not in st.session_state:
     st.session_state.current_conversation_index = -1  # Initialize with -1 to indicate no conversation selected
 
+if "auth_info" not in st.session_state:
+    st.session_state.auth_info = "{}"
+
 # Custom CSS
 st.markdown(
     """
