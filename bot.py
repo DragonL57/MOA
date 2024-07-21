@@ -307,15 +307,15 @@ def show_mode_selection_popup():
 # Function to render messages with LaTeX
 def render_message(message, class_name=""):
     latex_pattern = r'\$\$(.*?)\$\$'  # Regex pattern to detect LaTeX expressions enclosed in $$ 
-    matches = list(re.finditer(latex_pattern, message, re.DOTALL))
-
-    start = 0
-    for match in matches:
-        start, end = match.span()
-        st.markdown(f'<div class="{class_name}">{message[:start]}</div>', unsafe_allow_html=True)
-        st.latex(match.group(1))
-        message = message[end:]
-    st.markdown(f'<div class="{class_name}">{message}</div>', unsafe_allow_html=True)  # Render any remaining part of the message
+    parts = re.split(latex_pattern, message)
+    
+    for i, part in enumerate(parts):
+        if i % 2 == 0:
+            # Normal text part
+            st.markdown(f'<div class="{class_name}">{part}</div>', unsafe_allow_html=True)
+        else:
+            # LaTeX part
+            st.latex(part)
 
 async def process_fn(item, temperature=0.7, max_tokens=2048):
     if isinstance(item, str):
@@ -387,7 +387,10 @@ async def generate_search_query(conversation_history, current_query, language):
         temperature=0.7
     )
 
-    return generated_query.strip(), token_count
+    # Remove any instances of the `<|im_end|>` token from the generated query
+    cleaned_query = generated_query.replace("<|im_end|>", "").strip()
+
+    return cleaned_query, token_count
 
 # Sign-in function
 def sign_in(email, password):
