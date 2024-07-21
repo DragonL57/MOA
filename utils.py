@@ -54,6 +54,14 @@ async def generate_together(
             "stream": streaming,
         }
 
+        # Model-specific adjustments
+        if "gemma" in model.lower():
+            payload["messages"] = [{"role": m["role"], "content": m["content"]} for m in messages]
+        elif "qwen" in model.lower():
+            payload["max_tokens"] = min(max_tokens, 4096)
+        elif "databricks" in model.lower():
+            payload["max_tokens"] = min(max_tokens, 32768)
+
         if DEBUG:
             logger.debug(f"Request payload: {json.dumps(payload, indent=2, default=str)}")
 
