@@ -156,6 +156,7 @@ web_search_prompt = """Bạn là một trợ lý AI chuyên nghiệp với khả
    - Bắt đầu bằng một tóm tắt ngắn gọn về chủ đề.
    - Sắp xếp thông tin theo thứ tự logic hoặc thời gian (nếu phù hợp).
    - Sử dụng các tiêu đề phụ để phân chia các phần khác nhau của câu trả lời.
+   - Đối với các công thức toán học hoặc các biểu thức kỹ thuật, hãy đảm bảo rằng chúng được bao quanh bởi ký tự $$ để hiển thị đúng định dạng LaTeX.
 
 3. Ngôn ngữ và phong cách:
    - Sử dụng ngôn ngữ của người dùng trong toàn bộ câu trả lời.
