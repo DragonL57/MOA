@@ -22,6 +22,8 @@ from streamlit_option_menu import option_menu
 import extra_streamlit_components as stx
 from threading import Event, Thread
 from dotenv import load_dotenv
+from firebase_config import db
+from auth import create_user, sign_in_user, store_conversation, get_user_conversations
 
 load_dotenv()
 
@@ -166,6 +168,9 @@ if "chat_mode" not in st.session_state:
 if "show_popup" not in st.session_state:
     st.session_state.show_popup = True
 
+if "user" not in st.session_state:
+    st.session_state.user = None
+
 # Set page configuration
 st.set_page_config(page_title="MoA Chatbot", page_icon="🤖", layout="wide")
 
@@ -248,16 +253,16 @@ def show_mode_selection_popup():
                 if st.button("MoA (Mixture-of-Agents)"):
                     st.session_state.chat_mode = "moa"
                     st.session_state.show_popup = False
-                    st.experimental_rerun()
+                    st.session_state.needs_rerun = True
             with col2:
                 if st.button("Single Model"):
                     st.session_state.chat_mode = "single"
                     st.session_state.show_popup = False
-                    st.experimental_rerun()
+                    st.session_state.needs_rerun = True
 
 # Function to render messages with LaTeX
 def render_message(message):
-    latex_pattern = r'\$\$(.*?)\$\$'  # Regex pattern to detect LaTeX expressions enclosed in $$
+    latex_pattern = r'\$\$(.*?)\$\$'  # Regex pattern to detect LaTeX expressions enclosed in $$ 
     matches = re.finditer(latex_pattern, message, re.DOTALL)
 
     start = 0
@@ -340,16 +345,42 @@ async def generate_search_query(conversation_history, current_query, language):
 
     return generated_query.strip(), token_count
 
+def sign_in_form():
+    st.sidebar.header("Sign In")
+    email = st.sidebar.text_input("Email")
+    password = st.sidebar.text_input("Password", type="password")
+    if st.sidebar.button("Sign In"):
+        user = sign_in_user(email, password)
+        if user:
+            st.session_state["user"] = user
+            st.session_state.conversations = get_user_conversations(user.uid)
+            st.sidebar.success("Signed in successfully")
+            st.session_state.needs_rerun = True
+        else:
+            st.sidebar.error("Failed to sign in")
+
+    st.sidebar.header("Create Account")
+    new_email = st.sidebar.text_input("New Email")
+    new_password = st.sidebar.text_input("New Password", type="password")
+    if st.sidebar.button("Create Account"):
+        new_user = create_user(new_email, new_password)
+        if new_user:
+            st.sidebar.success("Account created successfully")
+            st.session_state.needs_rerun = True
+        else:
+            st.sidebar.error("Failed to create account")
+
 async def main_async():
-    # Display welcome message
     st.markdown(welcome_message)
 
-    # Show mode selection popup if mode hasn't been chosen
     if st.session_state.chat_mode is None:
         show_mode_selection_popup()
         return
+
+    if not st.session_state.get("user"):
+        sign_in_form()
+        return
     
-    # Sidebar for configuration
     with st.sidebar:
         # Custom border for Web Search and Additional System Instructions
         st.markdown('<div class="custom-border">', unsafe_allow_html=True)
@@ -385,8 +416,8 @@ async def main_async():
             if main_model != st.session_state.main_model:
                 st.session_state.main_model = main_model
 
-            temperature = st.slider("Temperature", 0.0, 2.0, 0.5, 0.1)
-            max_tokens = st.slider("Max tokens", 1, 8192, 2048, 1)
+            temperature = st.slider("Temperature", 0.0, 2.0, 0.7, 0.1)
+            max_tokens = st.slider("Max tokens", 1, 32768, 8192, 1)
 
             st.subheader("Reference Models")
             for ref_model in all_models:
@@ -410,17 +441,17 @@ async def main_async():
         if st.button("Start New Conversation", key="new_conversation"):
             st.session_state.messages = [{"role": "system", "content": st.session_state.messages[0]["content"]}]
             st.session_state.total_tokens = 0
-            st.rerun()
+            st.session_state.needs_rerun = True
 
         # Previous conversations
         st.subheader("Previous Conversations")
         for idx, conv in enumerate(reversed(st.session_state.conversations)):  # Reverse the list
             cols = st.columns([0.9, 0.1])
             with cols[0]:
-                if st.button(f"{len(st.session_state.conversations) - idx}. {conv['first_question'][:30]}...", key=f"conv_{idx}"):
+                if st.button(f"{len(st.session_state.conversations) - idx}. {conv.get('first_question', 'No title')[:30]}...", key=f"conv_{idx}"):
                     st.session_state.messages = conv['messages']
                     st.session_state.total_tokens = sum(msg.get('tokens', 0) for msg in conv['messages'])
-                    st.rerun()
+                    st.session_state.needs_rerun = True
             with cols[1]:
                 if st.button("❌", key=f"del_{idx}", on_click=lambda i=idx: delete_conversation(len(st.session_state.conversations) - i - 1)):
                     st.session_state.conversation_deleted = True
@@ -438,7 +469,7 @@ async def main_async():
     # Trigger rerun if a conversation was deleted
     if st.session_state.conversation_deleted:
         st.session_state.conversation_deleted = False
-        st.experimental_rerun()
+        st.session_state.needs_rerun = True
 
     # Chat interface
     st.markdown("Hello! I am MoA chatbot, please send me your questions below.")
@@ -462,6 +493,8 @@ async def main_async():
                 "first_question": prompt,
                 "messages": st.session_state.messages.copy()
             })
+            if st.session_state.user:
+                store_conversation(st.session_state.user.uid, st.session_state.conversations)
 
         total_tokens = 0
         total_cost_usd = 0
@@ -583,6 +616,9 @@ async def main_async():
                     st.session_state.conversations[-1]['messages'] = st.session_state.messages.copy()
                     st.session_state.total_tokens += total_tokens
 
+                    if st.session_state.user:
+                        store_conversation(st.session_state.user.uid, st.session_state.conversations)
+
             except Exception as e:
                 logger.error(f"Error during web search: {str(e)}")
                 st.session_state.messages.append({"role": "assistant", "content": f"Lỗi khi tìm kiếm trên web: {str(e)}"})
@@ -654,6 +690,9 @@ async def main_async():
                         st.session_state.conversations[-1]['messages'] = st.session_state.messages.copy()
                         st.session_state.total_tokens += total_tokens
 
+                        if st.session_state.user:
+                            store_conversation(st.session_state.user.uid, st.session_state.conversations)
+
                 else:  # Single model mode
                     with st.spinner("Typing..."):
                         output, response_token_count = await generate_together(
@@ -687,11 +726,17 @@ async def main_async():
                         st.session_state.conversations[-1]['messages'] = st.session_state.messages.copy()
                         st.session_state.total_tokens += total_tokens
 
-                        # Handle exceptions...
+                        if st.session_state.user:
+                            store_conversation(st.session_state.user.uid, st.session_state.conversations)
+
             except Exception as e:
                 st.error(f"An error occurred during the generation process: {str(e)}")
                 logger.error(f"Generation error: {str(e)}")
 
-
 if __name__ == "__main__":
     asyncio.run(main_async())
+
+    # Manually trigger rerun if needed
+    if "needs_rerun" in st.session_state and st.session_state.needs_rerun:
+        st.session_state.needs_rerun = False
+        st.experimental_rerun()
