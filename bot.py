@@ -233,6 +233,14 @@ st.markdown(
         text-decoration: none.
         cursor: pointer.
     }
+    .tight-spacing .stChatMessage {
+        margin-bottom: 0.5rem;
+    }
+    .small-message .stChatMessage {
+        font-size: 0.8rem;
+        padding: 0.25rem 0.5rem;
+        margin-bottom: 0.25rem;
+    }
     </style>
     """,
     unsafe_allow_html=True
@@ -264,17 +272,17 @@ def show_mode_selection_popup():
                     st.session_state.needs_rerun = True
 
 # Function to render messages with LaTeX
-def render_message(message):
+def render_message(message, class_name=""):
     latex_pattern = r'\$\$(.*?)\$\$'  # Regex pattern to detect LaTeX expressions enclosed in $$ 
     matches = re.finditer(latex_pattern, message, re.DOTALL)
 
     start = 0
     for match in matches:
         start, end = match.span()
-        st.markdown(message[:start])
+        st.markdown(f'<div class="{class_name}">{message[:start]}</div>', unsafe_allow_html=True)
         st.latex(match.group(1))
         message = message[end:]
-    st.markdown(message)  # Render any remaining part of the message
+    st.markdown(f'<div class="{class_name}">{message}</div>', unsafe_allow_html=True)  # Render any remaining part of the message
 
 async def process_fn(item, temperature=0.7, max_tokens=2048):
     if isinstance(item, str):
@@ -348,7 +356,6 @@ async def generate_search_query(conversation_history, current_query, language):
 
     return generated_query.strip(), token_count
 
-# Sign-in function
 # Sign-in function
 def sign_in(email, password):
     user = sign_in_user(email, password)
@@ -493,7 +500,8 @@ async def main_async():
                     if st.button(f"{len(st.session_state.conversations) - idx}. {conv.get('first_question', 'No title')[:30]}...", key=f"conv_{idx}"):
                         st.session_state.messages = conv['messages']
                         st.session_state.total_tokens = sum(msg.get('tokens', 0) for msg in conv['messages'])
-                        st.session_state.needs_rerun = True
+                        st.session_state.current_conversation_index = len(st.session_state.conversations) - idx - 1
+                        st.experimental_rerun()
                 with cols[1]:
                     if st.button("❌", key=f"del_{idx}", on_click=lambda i=idx: delete_conversation(len(st.session_state.conversations) - i - 1)):
                         st.session_state.conversation_deleted = True
@@ -511,7 +519,7 @@ async def main_async():
         # Trigger rerun if a conversation was deleted
         if st.session_state.conversation_deleted:
             st.session_state.conversation_deleted = False
-            st.session_state.needs_rerun = True
+            st.experimental_rerun()
 
         # Chat interface
         st.markdown("")
@@ -519,7 +527,7 @@ async def main_async():
         # Display chat messages from history on app rerun
         for message in st.session_state.messages[1:]:  # Skip the system message
             with st.chat_message(message["role"]):
-                render_message(message["content"])
+                render_message(message["content"], "tight-spacing")
                 if "tokens" in message and "cost_usd" in message and "cost_vnd" in message:
                     st.markdown(f"**Tokens used:** {message['tokens']}, **Cost:** ${message['cost_usd']:.6f}, **Cost:** {message['cost_vnd']:.0f} VND")
 
@@ -535,6 +543,10 @@ async def main_async():
                     "first_question": prompt,
                     "messages": st.session_state.messages.copy()
                 })
+                if st.session_state.user:
+                    store_conversation(st.session_state.user.uid, st.session_state.conversations)
+            else:
+                st.session_state.conversations[st.session_state.current_conversation_index]['messages'] = st.session_state.messages.copy()
                 if st.session_state.user:
                     store_conversation(st.session_state.user.uid, st.session_state.conversations)
 
@@ -555,7 +567,9 @@ async def main_async():
                         
                         # Display the search query used
                         st.session_state.messages.append({"role": "system", "content": f"Search query: {generated_query}"})
-                        st.chat_message("system").markdown(f"Search query: {generated_query}")
+
+
+                        st.chat_message("system").markdown(f"Search query: {generated_query}", unsafe_allow_html=True)
 
                         search_results = await google_search_async(generated_query, num_results=10)
                         
@@ -645,7 +659,7 @@ async def main_async():
                         formatted_response = full_response
 
                         with st.chat_message("assistant"):
-                            render_message(formatted_response)
+                            render_message(formatted_response, "tight-spacing")
                             st.markdown(f"**Tokens used:** {total_tokens}, **Cost:** ${total_cost_usd:.6f}, **Cost:** {total_cost_vnd:.0f} VND")
                         
                         st.session_state.messages.append({
@@ -655,7 +669,7 @@ async def main_async():
                             "cost_usd": total_cost_usd, 
                             "cost_vnd": total_cost_vnd
                         })
-                        st.session_state.conversations[-1]['messages'] = st.session_state.messages.copy()
+                        st.session_state.conversations[st.session_state.current_conversation_index]['messages'] = st.session_state.messages.copy()
                         st.session_state.total_tokens += total_tokens
 
                         if st.session_state.user:
@@ -719,7 +733,7 @@ async def main_async():
                                     full_response += chunk
 
                             with st.chat_message("assistant"):
-                                render_message(full_response)
+                                render_message(full_response, "tight-spacing")
                                 st.markdown(f"**Tokens used:** {total_tokens}, **Cost:** ${total_cost_usd:.6f}, **Cost:** {total_cost_vnd:.0f} VND")
 
                             st.session_state.messages.append({
@@ -729,7 +743,7 @@ async def main_async():
                                 "cost_usd": total_cost_usd,
                                 "cost_vnd": total_cost_vnd
                             })
-                            st.session_state.conversations[-1]['messages'] = st.session_state.messages.copy()
+                            st.session_state.conversations[st.session_state.current_conversation_index]['messages'] = st.session_state.messages.copy()
                             st.session_state.total_tokens += total_tokens
 
                             if st.session_state.user:
@@ -755,7 +769,7 @@ async def main_async():
                             full_response = output
 
                             with st.chat_message("assistant"):
-                                render_message(full_response)
+                                render_message(full_response, "tight-spacing")
                                 st.markdown(f"**Tokens used:** {total_tokens}, **Cost:** ${total_cost_usd:.6f}, **Cost:** {total_cost_vnd:.0f} VND")
 
                             st.session_state.messages.append({
@@ -765,7 +779,7 @@ async def main_async():
                                 "cost_usd": total_cost_usd,
                                 "cost_vnd": total_cost_vnd
                             })
-                            st.session_state.conversations[-1]['messages'] = st.session_state.messages.copy()
+                            st.session_state.conversations[st.session_state.current_conversation_index]['messages'] = st.session_state.messages.copy()
                             st.session_state.total_tokens += total_tokens
 
                             if st.session_state.user:
