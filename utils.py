@@ -17,15 +17,15 @@ nltk.download('stopwords')
 
 load_dotenv()
 
-DEBUG = int(os.environ.get("DEBUG", "0"))
+DEBUG = True
 
 @retry(wait=wait_exponential(multiplier=1, min=1, max=60), stop=stop_after_attempt(6))
 async def generate_together(
     model,
     messages,
-    max_tokens=2048,
+    max_tokens=8192,
     temperature=0.7,
-    streaming=True,
+    streaming=False,
 ):
     output = None
     token_count = 0
@@ -39,30 +39,54 @@ async def generate_together(
             return None, token_count
 
         if DEBUG:
-            logger.debug(
-                f"Sending messages ({len(messages)}) (last message: `{messages[-1]['content'][:20]}...`) to `{model}`."
-            )
+            logger.debug(f"Sending messages ({len(messages)}) (last message: `{messages[-1]['content'][:20]}...`) to `{model}`.")
+
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "model": model,
+            "max_tokens": max_tokens,
+            "temperature": (temperature if temperature > 1e-4 else 0),
+            "messages": messages,
+            "stream": streaming,
+        }
+
+        # Model-specific adjustments
+        if "gemma" in model.lower():
+            payload["messages"] = [{"role": m["role"], "content": m["content"]} for m in messages]
+        elif "qwen" in model.lower():
+            payload["max_tokens"] = min(max_tokens, 4096)
+        elif "databricks" in model.lower():
+            payload["max_tokens"] = min(max_tokens, 32768)
+
+        if DEBUG:
+            logger.debug(f"Request payload: {json.dumps(payload, indent=2, default=str)}")
 
         async with aiohttp.ClientSession() as session:
             async with session.post(
                 endpoint,
-                json={
-                    "model": model,
-                    "max_tokens": max_tokens,
-                    "temperature": (temperature if temperature > 1e-4 else 0),
-                    "messages": messages,
-                },
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                },
+                json=payload,
+                headers=headers,
             ) as res:
-                res.raise_for_status()
-                response = await res.json()
+                try:
+                    res.raise_for_status()
+                except aiohttp.ClientResponseError as e:
+                    logger.error(f"Client error: {e}")
+                    logger.error(f"Response status: {res.status}")
+                    logger.error(f"Response text: {await res.text()}")
+                    raise
+
+                response_text = await res.text()
+                if DEBUG:
+                    logger.debug(f"Raw response: {response_text}")
+                response = json.loads(response_text)
+
                 if "error" in response:
-                    logger.error(response)
-                    if response["error"]["type"] == "invalid_request_error":
-                        logger.info("Input + output is longer than max_position_id.")
-                        return None, token_count
+                    logger.error(f"API Error: {response['error']}")
+                    return None, token_count
 
                 output = response["choices"][0]["message"]["content"]
                 token_count = response["usage"]["total_tokens"]
@@ -70,10 +94,11 @@ async def generate_together(
     except aiohttp.ClientError as e:
         logger.error(f"Client error: {e}")
         raise
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON Decode error: {e}")
+        raise
     except Exception as e:
         logger.error(f"General error: {e}")
-        if DEBUG:
-            logger.debug(f"Msgs: `{messages}`")
         raise
 
     if output is None:
@@ -85,15 +110,6 @@ async def generate_together(
         logger.debug(f"Output: `{output[:20]}...`.")
 
     return output, token_count
-
-async def gather_responses(models, messages, max_tokens, temperature):
-    async with aiohttp.ClientSession() as session:
-        tasks = [
-            generate_together(session, model, messages, max_tokens, temperature)
-            for model in models
-        ]
-        responses = await asyncio.gather(*tasks)
-        return responses
 
 def inject_references_to_messages(messages, references):
     system = """Bạn đã nhận được nhiều phản hồi từ các mô hình mã nguồn mở khác nhau cho truy vấn mới nhất. Nhiệm vụ của bạn là tổng hợp các phản hồi này thành một câu trả lời duy nhất, chất lượng cao. Hãy đánh giá kỹ lưỡng thông tin, nhận ra rằng một số có thể thiên vị hoặc sai lầm. Đừng sao chép nguyên văn mà hãy cung cấp một câu trả lời tinh chỉnh, chính xác và toàn diện. Đảm bảo câu trả lời của bạn được cấu trúc tốt, mạch lạc, và chính xác. Đối với các công thức toán học hoặc các biểu thức kỹ thuật, hãy đảm bảo rằng chúng được bao quanh bởi ký tự $$ để hiển thị đúng định dạng LaTeX.
@@ -114,7 +130,7 @@ async def generate_with_references_async(
     model,
     messages,
     references=[],
-    max_tokens=2048,
+    max_tokens=8192,
     temperature=0.7,
     generate_fn=generate_together,
 ):
