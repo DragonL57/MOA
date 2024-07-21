@@ -65,7 +65,7 @@ class SharedValue:
 
 # Updated default reference models
 default_reference_models = [
-    "databricks/dbrx-instruct",
+    "google/gemma-2-9b-it",
     "Qwen/Qwen2-72B-Instruct",
     "google/gemma-2-27b-it",
     "meta-llama/Meta-Llama-3-70B-Instruct-Turbo",
@@ -73,6 +73,7 @@ default_reference_models = [
 
 # All available models
 all_models = [
+    "google/gemma-2-9b-it",
     "deepseek-ai/deepseek-llm-67b-chat",
     "databricks/dbrx-instruct",
     "google/gemma-2-27b-it",
@@ -100,18 +101,6 @@ model_pricing = {
     "deepseek-ai/deepseek-llm-67b-chat": 0.90,
 }
 vnd_per_usd = 25500  # Example conversion rate, update this with the actual rate
-
-max_token_options = {
-    "deepseek-ai/deepseek-llm-67b-chat": 4096,
-    "google/gemma-2-27b-it": 8192,
-    "Qwen/Qwen1.5-110B-Chat": 32768,
-    "meta-llama/Llama-3-70b-chat-hf": 8192,
-    "meta-llama/Meta-Llama-3-70B-Instruct-Turbo": 8192,
-    "Qwen/Qwen2-72B-Instruct": 32768,
-    "Qwen/Qwen1.5-72B": 32768,
-    "microsoft/WizardLM-2-8x22B": 65536,
-    "mistralai/Mixtral-8x22B-Instruct-v0.1": 65536,
-}
 
 # Default system prompt
 default_system_prompt = """Bạn là một trợ lý AI chuyên nghiệp với kiến thức sâu rộng. Khi trả lời các câu hỏi của người dùng, hãy đảm bảo:
