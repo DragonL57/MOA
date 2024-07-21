@@ -23,7 +23,7 @@ DEBUG = True
 async def generate_together(
     model,
     messages,
-    max_tokens=8192,
+    max_tokens=4096,
     temperature=0.7,
     streaming=False,
 ):
@@ -122,7 +122,7 @@ async def generate_with_references_async(
     model,
     messages,
     references=[],
-    max_tokens=8192,
+    max_tokens=4096,
     temperature=0.7,
     generate_fn=generate_together,
 ):
