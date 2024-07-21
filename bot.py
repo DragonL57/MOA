@@ -33,42 +33,19 @@ st.set_page_config(page_title="MoA Chatbot", page_icon="🤖", layout="wide")
 # JavaScript code for local storage
 local_storage_js = """
 <script>
-function setItem(key, value) {
-    localStorage.setItem(key, value);
-}
-
-function getItem(key) {
-    return localStorage.getItem(key);
-}
-
-function removeItem(key) {
-    localStorage.removeItem(key);
-}
-
-function clear() {
-    localStorage.clear();
-}
-
-function getAllKeys() {
-    var keys = [];
-    for (var i = 0; i < localStorage.length; i++) {
-        keys.push(localStorage.key(i));
+document.addEventListener("DOMContentLoaded", function() {
+    function getAuthInfo() {
+        return JSON.stringify({
+            email: localStorage.getItem('email'),
+            password: localStorage.getItem('password')
+        });
     }
-    return keys;
-}
-
-function getAuthInfo() {
-    return JSON.stringify({
-        email: localStorage.getItem('email'),
-        password: localStorage.getItem('password')
-    });
-}
-
-document.getElementById("auth-info").textContent = getAuthInfo();
+    document.getElementById("auth-info").textContent = getAuthInfo();
+});
 </script>
 """
 
-st.components.v1.html(local_storage_js + '<div id="auth-info"></div>', height=0)
+st.components.v1.html(local_storage_js + '<div id="auth-info" style="display:none;"></div>', height=0)
 
 class SharedValue:
     def __init__(self, initial_value=0.0):
@@ -156,7 +133,6 @@ web_search_prompt = """Bạn là một trợ lý AI chuyên nghiệp với khả
    - Bắt đầu bằng một tóm tắt ngắn gọn về chủ đề.
    - Sắp xếp thông tin theo thứ tự logic hoặc thời gian (nếu phù hợp).
    - Sử dụng các tiêu đề phụ để phân chia các phần khác nhau của câu trả lời.
-   - Đối với các công thức toán học hoặc các biểu thức kỹ thuật, hãy đảm bảo rằng chúng được bao quanh bởi ký tự $$ để hiển thị đúng định dạng LaTeX.
 
 3. Ngôn ngữ và phong cách:
    - Sử dụng ngôn ngữ của người dùng trong toàn bộ câu trả lời.
@@ -222,7 +198,7 @@ if "current_conversation_index" not in st.session_state:
     st.session_state.current_conversation_index = -1  # Initialize with -1 to indicate no conversation selected
 
 if "auth_info" not in st.session_state:
-    st.session_state.auth_info = "{}"
+    st.session_state.auth_info = {}
 
 # Custom CSS
 st.markdown(
@@ -236,58 +212,59 @@ st.markdown(
         align-items: center;
         justify-content: space-between;
         padding: 0.5rem;
-        border-bottom: 1px solid #ccc.
+        border-bottom: 1px solid #ccc;
     }
     .sidebar-content .custom-gpt:last-child {
-        border-bottom: none.
+        border-bottom: none;
     }
     .remove-button {
-        background-color: transparent.
-        color: red.
-        border: none.
-        cursor: pointer.
-        font-size: 16px.
+        background-color: transparent;
+        color: red;
+        border: none;
+        cursor: pointer;
+        font-size: 16px;
     }
     .modal {
-        display: none.
-        position: fixed.
-        z-index: 1.
-        left: 0.
-        top: 0.
-        width: 100%.
-        height: 100%.
-        overflow: auto.
-        background-color: rgb(0,0,0).
-        background-color: rgba(0,0,0,0.4).
-        padding-top: 60px.
+        display: none;
+        position: fixed;
+        z-index: 1;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgb(0,0,0);
+        background-color: rgba(0,0,0,0.4);
+        padding-top: 60px;
     }
     .modal-content {
-        background-color: #fefefe.
-        margin: 5% auto.
-        padding: 20px.
-        border: 1px solid #888.
-        width: 80%.
+        background-color: #fefefe;
+        margin: 5% auto;
+        padding: 20px;
+        border: 1px solid #888;
+        width: 80%;
     }
     .close {
-        color: #aaa.
-        float: right.
-        font-size: 28px.
-        font-weight: bold.
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
     }
     .close:hover,
     .close:focus {
-        color: black.
-        text-decoration: none.
-        cursor: pointer.
+        color: black;
+        text-decoration: none;
+        cursor: pointer;
     }
     .tight-spacing .stChatMessage {
-        margin-bottom: 0.5rem.
+        margin-bottom: 0.5rem;
     }
     .small-message .stChatMessage {
-        font-size: 0.8rem.
-        padding: 0.25rem 0.5rem.
-        margin-bottom: 0.25rem.
+        font-size: 0.8rem;
+        padding: 0.25rem 0.5rem;
+        margin-bottom: 0.25rem;
     }
+    .stAlert { display: none; }  /* Hide all Streamlit alerts */
     </style>
     """,
     unsafe_allow_html=True
@@ -412,12 +389,8 @@ def sign_in(email, password):
         st.session_state.email = email
         st.session_state.password = password
         st.session_state.authenticated = True
-        st.components.v1.html(f"""
-            <script>
-                setItem("email", "{email}");
-                setItem("password", "{password}");
-            </script>
-        """, height=0)
+        st.session_state.auth_info = {"email": email, "password": password}
+        st.experimental_set_query_params(auth_info=json.dumps(st.session_state.auth_info))
         return True
     return False
 
@@ -429,14 +402,17 @@ def register(email, password):
         st.session_state.email = email
         st.session_state.password = password
         st.session_state.authenticated = True
-        st.components.v1.html(f"""
-            <script>
-                setItem("email", "{email}");
-                setItem("password", "{password}");
-            </script>
-        """, height=0)
+        st.session_state.auth_info = {"email": email, "password": password}
+        st.experimental_set_query_params(auth_info=json.dumps(st.session_state.auth_info))
         return True
     return False
+
+# Logout function
+def logout():
+    st.session_state.user = None
+    st.session_state.authenticated = False
+    st.session_state.auth_info = {}
+    st.experimental_set_query_params()
 
 # Function to handle sign-in and registration form
 def auth_form():
@@ -473,215 +449,308 @@ def delete_conversation(index):
 async def main_async():
     st.markdown(welcome_message)
 
-    # Check for auto sign-in
-    if not st.session_state.authenticated:
-        auth_info = st.components.v1.html(local_storage_js + """
-            <script>
-                document.getElementById("auth-info").textContent = getAuthInfo();
-            </script>
-            <div id="auth-info"></div>
-        """, height=0)
-
-        auth_info_json = st.session_state.get("auth_info", "{}")
-        auth_info = json.loads(auth_info_json)
+    # Retrieve auth info from query params
+    query_params = st.experimental_get_query_params()
+    if "auth_info" in query_params:
+        auth_info = json.loads(query_params["auth_info"][0])
         email = auth_info.get("email")
         password = auth_info.get("password")
-        
         if email and password:
-            if not sign_in(email, password):
-                st.sidebar.error("Auto sign-in failed. Please sign in manually.")
-                auth_form()
-        else:
-            auth_form()
-    else:
-        user_email = st.session_state.user.email if st.session_state.user else "User"
-        st.sidebar.success(f"Welcome back, {user_email}!")
+            sign_in(email, password)
 
-        if st.session_state.chat_mode is None:
-            show_mode_selection_popup()
-            return
+    # Show auth form if not authenticated
+    if not st.session_state.authenticated:
+        auth_form()
+        return
+
+    user_email = st.session_state.user.email if st.session_state.user else "User"
+    st.sidebar.success(f"Welcome back, {user_email}!")
+
+    if st.session_state.chat_mode is None:
+        show_mode_selection_popup()
+        return
         
-        with st.sidebar:
-            # Custom border for Web Search and Additional System Instructions
-            st.markdown('<div class="custom-border">', unsafe_allow_html=True)
+    with st.sidebar:
+        # Custom border for Web Search and Additional System Instructions
+        st.markdown('<div class="custom-border">', unsafe_allow_html=True)
 
-            st.header("Web Search")
-            web_search_enabled = st.checkbox("Enable Web Search", value=st.session_state.web_search_enabled)
-            if web_search_enabled != st.session_state.web_search_enabled:
-                st.session_state.web_search_enabled = web_search_enabled
-                if web_search_enabled:
-                    st.session_state.selected_models = [model for model in default_reference_models]
-
-            st.header("Additional System Instructions")
-            user_prompt = st.text_area("Add your instructions", value=st.session_state.user_system_prompt, height=100)
-            if st.button("Update System Instructions"):
-                st.session_state.user_system_prompt = user_prompt
-                combined_prompt = f"{default_system_prompt}\n\nAdditional instructions: {user_prompt}"
-                if len(st.session_state.messages) > 0:
-                    st.session_state.messages[0]["content"] = combined_prompt
-                st.success("System instructions updated successfully!")
-            
-            st.markdown('</div>', unsafe_allow_html=True)  # Close the custom border
-
-            st.header("Model Settings")
-            
-            with st.expander("Configuration", expanded=False):
-                
-                # Select main model
-                main_model = st.selectbox(
-                    "Main model (aggregator model)",
-                    all_models,
-                    index=all_models.index(st.session_state.main_model)
-                )
-                if main_model != st.session_state.main_model:
-                    st.session_state.main_model = main_model
-
-                temperature = st.slider("Temperature", 0.0, 2.0, 0.7, 0.1)
-                max_tokens = st.slider("Max tokens", 1, 8192, 2048, 1)
-
-                st.subheader("Reference Models")
-                for ref_model in all_models:
-                    if st.checkbox(ref_model, value=(ref_model in st.session_state.selected_models)):
-                        if ref_model not in st.session_state.selected_models:
-                            st.session_state.selected_models.append(ref_model)
-                    else:
-                        if ref_model in st.session_state.selected_models:
-                            st.session_state.selected_models.remove(ref_model)
-
-            if st.session_state.chat_mode == "single":
-                st.header("Single Model Selection")
-                selected_model = st.selectbox(
-                    "Choose a model",
-                    all_models,
-                    index=all_models.index(st.session_state.main_model)
-                )
-                st.session_state.main_model = selected_model
-
-            # Start new conversation button
-            if st.button("Start New Conversation", key="new_conversation"):
-                st.session_state.messages = [{"role": "system", "content": st.session_state.messages[0]["content"]}]
-                st.session_state.total_tokens = 0
-                st.session_state.needs_rerun = True
-
-            # Previous conversations
-            st.subheader("Previous Conversations")
-            for idx, conv in enumerate(reversed(st.session_state.conversations)):  # Reverse the list
-                cols = st.columns([0.9, 0.1])
-                with cols[0]:
-                    if st.button(f"{len(st.session_state.conversations) - idx}. {conv.get('first_question', 'No title')[:30]}...", key=f"conv_{idx}"):
-                        st.session_state.messages = conv['messages']
-                        st.session_state.total_tokens = sum(msg.get('tokens', 0) for msg in conv['messages'])
-                        st.session_state.current_conversation_index = len(st.session_state.conversations) - idx - 1
-                        st.experimental_rerun()
-                with cols[1]:
-                    if st.button("❌", key=f"del_{idx}", on_click=lambda i=idx: delete_conversation(len(st.session_state.conversations) - i - 1)):
-                        st.session_state.conversation_deleted = True
-
-            # Add a download button for chat history
-            if st.button("Download Chat History"):
-                chat_history = "\n".join([f"{m['role']}: {m['content']}"] for m in st.session_state.messages[1:])  # Skip system message
-                st.download_button(
-                    label="Download Chat History",
-                    data=chat_history,
-                    file_name="chat_history.txt",
-                    mime="text/plain"
-                )
-
-        # Trigger rerun if a conversation was deleted
-        if st.session_state.conversation_deleted:
-            st.session_state.conversation_deleted = False
+        # Logout button
+        if st.button("Logout"):
+            logout()
+            st.success("Logged out successfully")
             st.experimental_rerun()
 
-        # Chat interface
-        st.markdown("")
+        st.header("Web Search")
+        web_search_enabled = st.checkbox("Enable Web Search", value=st.session_state.web_search_enabled)
+        if web_search_enabled != st.session_state.web_search_enabled:
+            st.session_state.web_search_enabled = web_search_enabled
+            if web_search_enabled:
+                st.session_state.selected_models = [model for model in default_reference_models]
+
+        st.header("Additional System Instructions")
+        user_prompt = st.text_area("Add your instructions", value=st.session_state.user_system_prompt, height=100)
+        if st.button("Update System Instructions"):
+            st.session_state.user_system_prompt = user_prompt
+            combined_prompt = f"{default_system_prompt}\n\nAdditional instructions: {user_prompt}"
+            if len(st.session_state.messages) > 0:
+                st.session_state.messages[0]["content"] = combined_prompt
+            st.success("System instructions updated successfully!")
         
-        # Display chat messages from history on app rerun
-        for message in st.session_state.messages[1:]:  # Skip the system message
-            with st.chat_message(message["role"]):
-                render_message(message["content"], "tight-spacing")
-                if "tokens" in message and "cost_usd" in message and "cost_vnd" in message:
-                    st.markdown(f"**Tokens used:** {message['tokens']}, **Cost:** ${message['cost_usd']:.6f}, **Cost:** {message['cost_vnd']:.0f} VND")
+        st.markdown('</div>', unsafe_allow_html=True)  # Close the custom border
 
-        # React to user input
-        if prompt := st.chat_input("What would you like to know?"):
-            st.chat_message("user").markdown(prompt)
-            st.session_state.messages.append({"role": "user", "content": prompt})
+        st.header("Model Settings")
+        
+        with st.expander("Configuration", expanded=False):
+            
+            # Select main model
+            main_model = st.selectbox(
+                "Main model (aggregator model)",
+                all_models,
+                index=all_models.index(st.session_state.main_model)
+            )
+            if main_model != st.session_state.main_model:
+                st.session_state.main_model = main_model
 
-            user_language = detect(prompt)
+            temperature = st.slider("Temperature", 0.0, 2.0, 0.7, 0.1)
+            max_tokens = st.slider("Max tokens", 1, 8192, 2048, 1)
 
-            if len(st.session_state.messages) == 2:
-                st.session_state.conversations.append({
-                    "first_question": prompt,
-                    "messages": st.session_state.messages.copy()
-                })
-                if st.session_state.user:
-                    store_conversation(st.session_state.user.uid, st.session_state.conversations)
-            else:
-                st.session_state.conversations[st.session_state.current_conversation_index]['messages'] = st.session_state.messages.copy()
-                if st.session_state.user:
-                    store_conversation(st.session_state.user.uid, st.session_state.conversations)
+            st.subheader("Reference Models")
+            for ref_model in all_models:
+                if st.checkbox(ref_model, value=(ref_model in st.session_state.selected_models)):
+                    if ref_model not in st.session_state.selected_models:
+                        st.session_state.selected_models.append(ref_model)
+                else:
+                    if ref_model in st.session_state.selected_models:
+                        st.session_state.selected_models.remove(ref_model)
 
-            total_tokens = 0
-            total_cost_usd = 0
-            total_cost_vnd = 0
+        if st.session_state.chat_mode == "single":
+            st.header("Single Model Selection")
+            selected_model = st.selectbox(
+                "Choose a model",
+                all_models,
+                index=all_models.index(st.session_state.main_model)
+            )
+            st.session_state.main_model = selected_model
 
-            if st.session_state.web_search_enabled:
-                try:
-                    if len(st.session_state.messages) > 0:
-                        st.session_state.messages[0]["content"] = web_search_prompt  # Update the system prompt for web search
-                    st.session_state.messages.append({"role": "assistant", "content": "Đang tìm kiếm trên web..."})
+        # Start new conversation button
+        if st.button("Start New Conversation", key="new_conversation"):
+            st.session_state.messages = [{"role": "system", "content": st.session_state.messages[0]["content"]}]
+            st.session_state.total_tokens = 0
+            st.session_state.needs_rerun = True
 
-                    with st.spinner("Đang tìm kiếm trên web..."):
-                        # Sử dụng hàm generate_search_query để tạo query
-                        conversation_history = "\n".join([f"{msg['role']}: {msg['content']}" for msg in st.session_state.messages[:-1]])
-                        generated_query, search_query_token_count = await generate_search_query(conversation_history, prompt, user_language)
-                        
-                        # Display the search query used
-                        st.session_state.messages.append({"role": "system", "content": f"Search query: {generated_query}"})
+        # Previous conversations
+        st.subheader("Previous Conversations")
+        for idx, conv in enumerate(reversed(st.session_state.conversations)):  # Reverse the list
+            cols = st.columns([0.9, 0.1])
+            with cols[0]:
+                if st.button(f"{len(st.session_state.conversations) - idx}. {conv.get('first_question', 'No title')[:30]}...", key=f"conv_{idx}"):
+                    st.session_state.messages = conv['messages']
+                    st.session_state.total_tokens = sum(msg.get('tokens', 0) for msg in conv['messages'])
+                    st.session_state.current_conversation_index = len(st.session_state.conversations) - idx - 1
+                    st.experimental_rerun()
+            with cols[1]:
+                if st.button("❌", key=f"del_{idx}", on_click=lambda i=idx: delete_conversation(len(st.session_state.conversations) - i - 1)):
+                    st.session_state.conversation_deleted = True
 
-                        st.chat_message("system").markdown(f"Search query: {generated_query}", unsafe_allow_html=True)
+        # Add a download button for chat history
+        if st.button("Download Chat History"):
+            chat_history = "\n".join([f"{m['role']}: {m['content']}"] for m in st.session_state.messages[1:])  # Skip system message
+            st.download_button(
+                label="Download Chat History",
+                data=chat_history,
+                file_name="chat_history.txt",
+                mime="text/plain"
+            )
 
-                        search_results = await google_search_async(generated_query, num_results=10)
-                        
-                        # Kiểm tra nếu không có kết quả tìm kiếm
-                        if 'items' not in search_results:
-                            raise ValueError("No search results found.")
-                        
-                        snippets = extract_snippets(search_results)
-                        sources = [item['link'] for item in search_results['items']]
-                        
-                        # Ghi log các kết quả tìm kiếm và đường link vào console
-                        logger.info(f"Search snippets: {snippets}")
-                        logger.info(f"Search sources: {sources}")
-                        
-                        search_summary = "\n\n".join(snippets)
+    # Trigger rerun if a conversation was deleted
+    if st.session_state.conversation_deleted:
+        st.session_state.conversation_deleted = False
+        st.experimental_rerun()
 
-                    # Use the search summary to generate a final response
-                    if st.session_state.chat_mode == "moa":
+    # Chat interface
+    st.markdown("")
+    
+    # Display chat messages from history on app rerun
+    for message in st.session_state.messages[1:]:  # Skip the system message
+        with st.chat_message(message["role"]):
+            render_message(message["content"], "tight-spacing")
+            if "tokens" in message and "cost_usd" in message and "cost_vnd" in message:
+                st.markdown(f"**Tokens used:** {message['tokens']}, **Cost:** ${message['cost_usd']:.6f}, **Cost:** {message['cost_vnd']:.0f} VND")
 
-                        # Use the search summary to generate a final response using the main model
-                        data = {
-                            "instruction": [st.session_state.messages] * len(st.session_state.selected_models),
-                            "references": [[search_summary]] * len(st.session_state.selected_models),
-                            "model": st.session_state.selected_models,
-                        }
-                        
+    # React to user input
+    if prompt := st.chat_input("What would you like to know?"):
+        st.chat_message("user").markdown(prompt)
+        st.session_state.messages.append({"role": "user", "content": prompt})
+
+        user_language = detect(prompt)
+
+        if len(st.session_state.messages) == 2:
+            st.session_state.conversations.append({
+                "first_question": prompt,
+                "messages": st.session_state.messages.copy()
+            })
+            if st.session_state.user:
+                store_conversation(st.session_state.user.uid, st.session_state.conversations)
+        else:
+            st.session_state.conversations[st.session_state.current_conversation_index]['messages'] = st.session_state.messages.copy()
+            if st.session_state.user:
+                store_conversation(st.session_state.user.uid, st.session_state.conversations)
+
+        total_tokens = 0
+        total_cost_usd = 0
+        total_cost_vnd = 0
+
+        if st.session_state.web_search_enabled:
+            try:
+                if len(st.session_state.messages) > 0:
+                    st.session_state.messages[0]["content"] = web_search_prompt  # Update the system prompt for web search
+                st.session_state.messages.append({"role": "assistant", "content": "Đang tìm kiếm trên web..."})
+
+                with st.spinner("Đang tìm kiếm trên web..."):
+                    # Sử dụng hàm generate_search_query để tạo query
+                    conversation_history = "\n".join([f"{msg['role']}: {msg['content']}" for msg in st.session_state.messages[:-1]])
+                    generated_query, search_query_token_count = await generate_search_query(conversation_history, prompt, user_language)
+                    
+                    # Display the search query used
+                    st.session_state.messages.append({"role": "system", "content": f"Search query: {generated_query}"})
+
+                    st.chat_message("system").markdown(f"Search query: {generated_query}", unsafe_allow_html=True)
+
+                    search_results = await google_search_async(generated_query, num_results=10)
+                    
+                    # Kiểm tra nếu không có kết quả tìm kiếm
+                    if 'items' not in search_results:
+                        raise ValueError("No search results found.")
+                    
+                    snippets = extract_snippets(search_results)
+                    sources = [item['link'] for item in search_results['items']]
+                    
+                    # Ghi log các kết quả tìm kiếm và đường link vào console
+                    logger.info(f"Search snippets: {snippets}")
+                    logger.info(f"Search sources: {sources}")
+                    
+                    search_summary = "\n\n".join(snippets)
+
+                # Use the search summary to generate a final response
+                if st.session_state.chat_mode == "moa":
+
+                    # Use the search summary to generate a final response using the main model
+                    data = {
+                        "instruction": [st.session_state.messages] * len(st.session_state.selected_models),
+                        "references": [[search_summary]] * len(st.session_state.selected_models),
+                        "model": st.session_state.selected_models,
+                    }
+                    
+                    # Process items asynchronously
+                    tasks = [process_fn(model, temperature=temperature, max_tokens=max_tokens) 
+                            for model in st.session_state.selected_models]
+                    results = await asyncio.gather(*tasks)
+
+                    references = [result["output"] for result in results]
+                    token_counts = [result["tokens"] for result in results]
+                    cost_usd_list = [result["cost_usd"] for result in results]
+                    cost_vnd_list = [result["cost_vnd"] for result in results]
+                    
+                    total_tokens = sum(token_counts)
+                    total_cost_usd = sum(cost_usd_list)
+                    total_cost_vnd = sum(cost_vnd_list)
+
+                    data["references"] = references
+                    eval_set = datasets.Dataset.from_dict(data)
+
+                    output, response_token_count = await generate_with_references_async(
+                        model=st.session_state.main_model,
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        messages=st.session_state.messages,
+                        references=references,
+                        generate_fn=generate_together
+                    )
+
+                    response_cost_usd = (response_token_count / 1_000_000) * model_pricing.get(st.session_state.main_model, 0)
+                    response_cost_vnd = response_cost_usd * vnd_per_usd
+
+                    total_tokens += response_token_count
+                    total_cost_usd += response_cost_usd
+                    total_cost_vnd += response_cost_vnd
+
+                    full_response = ""
+                    for chunk in output:
+                        if isinstance(chunk, dict) and "choices" in chunk:
+                            for choice in chunk["choices"]:
+                                if "delta" in choice and "content" in choice["delta"]:
+                                    full_response += choice["delta"]["content"]
+                        else:
+                            full_response += chunk
+                            
+                else:  # Single model mode
+                    output, response_token_count = await generate_together(
+                        model=st.session_state.main_model,
+                        messages=st.session_state.messages + [{"role": "system", "content": f"Web search results:\n{search_summary}"}],
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        streaming=False
+                    )
+
+                    response_cost_usd = (response_token_count / 1_000_000) * model_pricing.get(st.session_state.main_model, 0)
+                    response_cost_vnd = response_cost_usd * vnd_per_usd
+
+                    total_tokens += response_token_count
+                    total_cost_usd += response_cost_usd
+                    total_cost_vnd += response_cost_vnd
+
+                    full_response = output
+                    # Display the translated response with sources
+                    formatted_response = full_response
+
+                    with st.chat_message("assistant"):
+                        render_message(formatted_response, "tight-spacing")
+                        st.markdown(f"**Tokens used:** {total_tokens}, **Cost:** ${total_cost_usd:.6f}, **Cost:** {total_cost_vnd:.0f} VND")
+                    
+                    st.session_state.messages.append({
+                        "role": "assistant", 
+                        "content": formatted_response, 
+                        "tokens": total_tokens, 
+                        "cost_usd": total_cost_usd, 
+                        "cost_vnd": total_cost_vnd
+                    })
+                    st.session_state.conversations[st.session_state.current_conversation_index]['messages'] = st.session_state.messages.copy()
+                    st.session_state.total_tokens += total_tokens
+
+                    if st.session_state.user:
+                        store_conversation(st.session_state.user.uid, st.session_state.conversations)
+
+            except Exception as e:
+                logger.error(f"Error during web search: {str(e)}")
+                st.session_state.messages.append({"role": "assistant", "content": f"Lỗi khi tìm kiếm trên web: {str(e)}"})
+        else:
+            try:
+                if st.session_state.chat_mode == "moa":
+                    data = {
+                        "instruction": [st.session_state.messages for _ in range(len(st.session_state.selected_models))],
+                        "references": [[] for _ in range(len(st.session_state.selected_models))],
+                        "model": st.session_state.selected_models,
+                    }
+                    with st.spinner("Typing..."):
                         # Process items asynchronously
                         tasks = [process_fn(model, temperature=temperature, max_tokens=max_tokens) 
                                 for model in st.session_state.selected_models]
+                        
                         results = await asyncio.gather(*tasks)
 
                         references = [result["output"] for result in results]
                         token_counts = [result["tokens"] for result in results]
                         cost_usd_list = [result["cost_usd"] for result in results]
                         cost_vnd_list = [result["cost_vnd"] for result in results]
-                        
+
                         total_tokens = sum(token_counts)
                         total_cost_usd = sum(cost_usd_list)
                         total_cost_vnd = sum(cost_vnd_list)
-
                         data["references"] = references
                         eval_set = datasets.Dataset.from_dict(data)
+
+                        # Log when the aggregator model is being queried
+                        logger.info(f"Querying aggregator model: {st.session_state.main_model}")
 
                         output, response_token_count = await generate_with_references_async(
                             model=st.session_state.main_model,
@@ -707,11 +776,29 @@ async def main_async():
                                         full_response += choice["delta"]["content"]
                             else:
                                 full_response += chunk
-                                
-                    else:  # Single model mode
+
+                        with st.chat_message("assistant"):
+                            render_message(full_response, "tight-spacing")
+                            st.markdown(f"**Tokens used:** {total_tokens}, **Cost:** ${total_cost_usd:.6f}, **Cost:** {total_cost_vnd:.0f} VND")
+
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": full_response,
+                            "tokens": total_tokens,
+                            "cost_usd": total_cost_usd,
+                            "cost_vnd": total_cost_vnd
+                        })
+                        st.session_state.conversations[st.session_state.current_conversation_index]['messages'] = st.session_state.messages.copy()
+                        st.session_state.total_tokens += total_tokens
+
+                        if st.session_state.user:
+                            store_conversation(st.session_state.user.uid, st.session_state.conversations)
+
+                else:  # Single model mode
+                    with st.spinner("Typing..."):
                         output, response_token_count = await generate_together(
                             model=st.session_state.main_model,
-                            messages=st.session_state.messages + [{"role": "system", "content": f"Web search results:\n{search_summary}"}],
+                            messages=st.session_state.messages,
                             temperature=temperature,
                             max_tokens=max_tokens,
                             streaming=False
@@ -725,18 +812,16 @@ async def main_async():
                         total_cost_vnd += response_cost_vnd
 
                         full_response = output
-                        # Display the translated response with sources
-                        formatted_response = full_response
 
                         with st.chat_message("assistant"):
-                            render_message(formatted_response, "tight-spacing")
+                            render_message(full_response, "tight-spacing")
                             st.markdown(f"**Tokens used:** {total_tokens}, **Cost:** ${total_cost_usd:.6f}, **Cost:** {total_cost_vnd:.0f} VND")
-                        
+
                         st.session_state.messages.append({
-                            "role": "assistant", 
-                            "content": formatted_response, 
-                            "tokens": total_tokens, 
-                            "cost_usd": total_cost_usd, 
+                            "role": "assistant",
+                            "content": full_response,
+                            "tokens": total_tokens,
+                            "cost_usd": total_cost_usd,
                             "cost_vnd": total_cost_vnd
                         })
                         st.session_state.conversations[st.session_state.current_conversation_index]['messages'] = st.session_state.messages.copy()
@@ -745,119 +830,9 @@ async def main_async():
                         if st.session_state.user:
                             store_conversation(st.session_state.user.uid, st.session_state.conversations)
 
-                except Exception as e:
-                    logger.error(f"Error during web search: {str(e)}")
-                    st.session_state.messages.append({"role": "assistant", "content": f"Lỗi khi tìm kiếm trên web: {str(e)}"})
-            else:
-                try:
-                    if st.session_state.chat_mode == "moa":
-                        data = {
-                            "instruction": [st.session_state.messages for _ in range(len(st.session_state.selected_models))],
-                            "references": [[] for _ in range(len(st.session_state.selected_models))],
-                            "model": st.session_state.selected_models,
-                        }
-                        with st.spinner("Typing..."):
-                            # Process items asynchronously
-                            tasks = [process_fn(model, temperature=temperature, max_tokens=max_tokens) 
-                                    for model in st.session_state.selected_models]
-                            
-                            results = await asyncio.gather(*tasks)
-
-                            references = [result["output"] for result in results]
-                            token_counts = [result["tokens"] for result in results]
-                            cost_usd_list = [result["cost_usd"] for result in results]
-                            cost_vnd_list = [result["cost_vnd"] for result in results]
-
-                            total_tokens = sum(token_counts)
-                            total_cost_usd = sum(cost_usd_list)
-                            total_cost_vnd = sum(cost_vnd_list)
-                            data["references"] = references
-                            eval_set = datasets.Dataset.from_dict(data)
-
-                            # Log when the aggregator model is being queried
-                            logger.info(f"Querying aggregator model: {st.session_state.main_model}")
-
-                            output, response_token_count = await generate_with_references_async(
-                                model=st.session_state.main_model,
-                                temperature=temperature,
-                                max_tokens=max_tokens,
-                                messages=st.session_state.messages,
-                                references=references,
-                                generate_fn=generate_together
-                            )
-
-                            response_cost_usd = (response_token_count / 1_000_000) * model_pricing.get(st.session_state.main_model, 0)
-                            response_cost_vnd = response_cost_usd * vnd_per_usd
-
-                            total_tokens += response_token_count
-                            total_cost_usd += response_cost_usd
-                            total_cost_vnd += response_cost_vnd
-
-                            full_response = ""
-                            for chunk in output:
-                                if isinstance(chunk, dict) and "choices" in chunk:
-                                    for choice in chunk["choices"]:
-                                        if "delta" in choice and "content" in choice["delta"]:
-                                            full_response += choice["delta"]["content"]
-                                else:
-                                    full_response += chunk
-
-                            with st.chat_message("assistant"):
-                                render_message(full_response, "tight-spacing")
-                                st.markdown(f"**Tokens used:** {total_tokens}, **Cost:** ${total_cost_usd:.6f}, **Cost:** {total_cost_vnd:.0f} VND")
-
-                            st.session_state.messages.append({
-                                "role": "assistant",
-                                "content": full_response,
-                                "tokens": total_tokens,
-                                "cost_usd": total_cost_usd,
-                                "cost_vnd": total_cost_vnd
-                            })
-                            st.session_state.conversations[st.session_state.current_conversation_index]['messages'] = st.session_state.messages.copy()
-                            st.session_state.total_tokens += total_tokens
-
-                            if st.session_state.user:
-                                store_conversation(st.session_state.user.uid, st.session_state.conversations)
-
-                    else:  # Single model mode
-                        with st.spinner("Typing..."):
-                            output, response_token_count = await generate_together(
-                                model=st.session_state.main_model,
-                                messages=st.session_state.messages,
-                                temperature=temperature,
-                                max_tokens=max_tokens,
-                                streaming=False
-                            )
-
-                            response_cost_usd = (response_token_count / 1_000_000) * model_pricing.get(st.session_state.main_model, 0)
-                            response_cost_vnd = response_cost_usd * vnd_per_usd
-
-                            total_tokens += response_token_count
-                            total_cost_usd += response_cost_usd
-                            total_cost_vnd += response_cost_vnd
-
-                            full_response = output
-
-                            with st.chat_message("assistant"):
-                                render_message(full_response, "tight-spacing")
-                                st.markdown(f"**Tokens used:** {total_tokens}, **Cost:** ${total_cost_usd:.6f}, **Cost:** {total_cost_vnd:.0f} VND")
-
-                            st.session_state.messages.append({
-                                "role": "assistant",
-                                "content": full_response,
-                                "tokens": total_tokens,
-                                "cost_usd": total_cost_usd,
-                                "cost_vnd": total_cost_vnd
-                            })
-                            st.session_state.conversations[st.session_state.current_conversation_index]['messages'] = st.session_state.messages.copy()
-                            st.session_state.total_tokens += total_tokens
-
-                            if st.session_state.user:
-                                store_conversation(st.session_state.user.uid, st.session_state.conversations)
-
-                except Exception as e:
-                    st.error(f"An error occurred during the generation process: {str(e)}")
-                    logger.error(f"Generation error: {str(e)}")
+            except Exception as e:
+                st.error(f"An error occurred during the generation process: {str(e)}")
+                logger.error(f"Generation error: {str(e)}")
 
 if __name__ == "__main__":
     asyncio.run(main_async())
