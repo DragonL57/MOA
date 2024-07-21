@@ -578,7 +578,6 @@ async def main_async():
                         messages=st.session_state.messages + [{"role": "system", "content": f"Web search results:\n{search_summary}"}],
                         temperature=temperature,
                         max_tokens=st.session_state.max_tokens,
-                        references=references,
                         streaming=False
                     )
 
