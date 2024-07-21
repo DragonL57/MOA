@@ -153,7 +153,9 @@ web_search_prompt = """Bạn là một trợ lý AI chuyên nghiệp với khả
    - Kết thúc bằng cách hỏi người dùng xem họ cần làm rõ hoặc bổ sung thông tin gì không.
    - Đề xuất các câu hỏi liên quan hoặc chủ đề mở rộng dựa trên nội dung tìm kiếm.
 
-7. Nếu có công thức toán học, hãy trình bày, xây dựng lại công thức đó và đảm bảo rằng các biểu thức toán học được bao quanh bởi ký tự $$ để hiển thị đúng định dạng LaTeX.
+7. Công thức, biểu thức toán học:
+   - Nếu có công thức toán học, hãy trình bày, xây dựng lại công thức đó và đảm bảo rằng các biểu thức toán học được bao quanh bởi ký tự $$ để hiển thị đúng định dạng LaTeX.
+   - Sau khi trình bày công thức, biểu thức toán học, hãy xuống hàng rồi mới giải thích công thức, biểu thức toán học đó.
 
 Nội dung từ các trang web:
 {web_contents}
