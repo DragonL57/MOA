@@ -22,7 +22,10 @@ from streamlit_option_menu import option_menu
 import extra_streamlit_components as stx
 from threading import Event, Thread
 from dotenv import load_dotenv
-from firebase_config import db
+
+# Import the firebase config
+from firebase_config import db  # Ensure this file contains the unique name check
+
 from auth import create_user, sign_in_user, store_conversation, get_user_conversations
 
 load_dotenv()
@@ -126,18 +129,17 @@ web_search_prompt = """Bạn là một trợ lý AI chuyên nghiệp với khả
 
 1. Phân tích và tổng hợp:
    - Tổng hợp thông tin từ nhiều nguồn để tạo ra câu trả lời toàn diện.
-   - Đảm bảo thông tin chính xác và được hỗ trợ bởi các nội dung trên web để tránh mơ hồ, đặc biệt là số liệu.
+   - Có thể cung cấp thêm thông tin nhưng phải đảm bảo thông tin chính xác và được hỗ trợ bởi các nội dung trên web để tránh mơ hồ, đặc biệt là số liệu.
    - Giải quyết mọi mâu thuẫn giữa các nguồn (nếu có).
 
 2. Cấu trúc câu trả lời:
    - Bắt đầu bằng một tóm tắt ngắn gọn về chủ đề.
    - Sắp xếp thông tin theo thứ tự logic hoặc thời gian (nếu phù hợp).
-   - Sử dụng các tiêu đề phụ để phân chia các phần khác nhau của câu trả lời.
 
 3. Ngôn ngữ và phong cách:
    - Sử dụng ngôn ngữ của người dùng trong toàn bộ câu trả lời.
-   - Duy trì phong cách chuyên nghiệp, khách quan và dễ hiểu.
-   - Giữ nguyên các thuật ngữ chuyên ngành và tên riêng trong ngôn ngữ gốc.
+   - Duy trì phong cách chuyên nghiệp, khách quan và mạch lạc.
+   - Giữ nguyên các thuật ngữ chuyên ngành và tên riêng trong nguồn gốc.
 
 4. Xử lý thông tin không đầy đủ hoặc không chắc chắn:
    - Nếu thông tin không đầy đủ hoặc mâu thuẫn, hãy nêu rõ điều này.
@@ -151,10 +153,12 @@ web_search_prompt = """Bạn là một trợ lý AI chuyên nghiệp với khả
    - Kết thúc bằng cách hỏi người dùng xem họ cần làm rõ hoặc bổ sung thông tin gì không.
    - Đề xuất các câu hỏi liên quan hoặc chủ đề mở rộng dựa trên nội dung tìm kiếm.
 
+7. Nếu có công thức toán học, hãy trình bày, xây dựng lại công thức đó và đảm bảo rằng các biểu thức toán học được bao quanh bởi ký tự $$ để hiển thị đúng định dạng LaTeX.
+
 Nội dung từ các trang web:
 {web_contents}
 
-Hãy trả lời câu hỏi của người dùng dựa trên các hướng dẫn trên và nội dung web được cung cấp. Đảm bảo câu trả lời của bạn chính xác với thông tin từ các trang web, toàn diện và hữu ích.
+Hãy trả lời câu hỏi của người dùng dựa trên các hướng dẫn trên và nội dung web được cung cấp. Đảm bảo câu trả lời của bạn chính xác với thông tin từ các trang web, toàn diện và hữu ích. Đảm bảo rằng các biểu thức toán học được bao quanh bởi ký tự $$ để hiển thị đúng định dạng LaTeX.
 """
 
 # Initialize session state
@@ -265,6 +269,9 @@ st.markdown(
         margin-bottom: 0.25rem;
     }
     .stAlert { display: none; }  /* Hide all Streamlit alerts */
+    .title {
+        font-size: 1.0rem;  /* Adjust the size as needed */
+    }
     </style>
     """,
     unsafe_allow_html=True
@@ -298,7 +305,7 @@ def show_mode_selection_popup():
 # Function to render messages with LaTeX
 def render_message(message, class_name=""):
     latex_pattern = r'\$\$(.*?)\$\$'  # Regex pattern to detect LaTeX expressions enclosed in $$ 
-    matches = re.finditer(latex_pattern, message, re.DOTALL)
+    matches = list(re.finditer(latex_pattern, message, re.DOTALL))
 
     start = 0
     for match in matches:
