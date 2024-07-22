@@ -214,22 +214,12 @@ st.markdown(
     .sidebar-content {
         padding: 1rem;
     }
-    .sidebar-content .custom-gpt {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0.5rem;
-        border-bottom: 1px solid #ccc;
-    }
-    .sidebar-content .custom-gpt:last-child {
-        border-bottom: none;
-    }
     .remove-button {
         background-color: transparent;
         color: red;
         border: none;
         cursor: pointer;
-        font-size: 16px;
+        font-size: 13px;
     }
     .modal {
         display: none;
@@ -459,6 +449,10 @@ def delete_conversation(index):
         st.session_state.conversations = user_conversations
         st.session_state.needs_rerun = True
 
+def toggle_web_search():
+    st.session_state.web_search_enabled = not st.session_state.web_search_enabled
+    st.experimental_rerun()
+
 async def main_async():
     st.markdown(welcome_message)
 
@@ -492,13 +486,6 @@ async def main_async():
             logout()
             st.success("Logged out successfully")
             st.experimental_rerun()
-
-        st.header("Web Search")
-        web_search_enabled = st.checkbox("Enable Web Search", value=st.session_state.web_search_enabled)
-        if web_search_enabled != st.session_state.web_search_enabled:
-            st.session_state.web_search_enabled = web_search_enabled
-            if web_search_enabled:
-                st.session_state.selected_models = [model for model in default_reference_models]
 
         st.header("Additional System Instructions")
         user_prompt = st.text_area("Add your instructions", value=st.session_state.user_system_prompt, height=100)
@@ -590,8 +577,25 @@ async def main_async():
             if "tokens" in message and "cost_usd" in message and "cost_vnd" in message:
                 st.markdown(f"**Tokens used:** {message['tokens']}, **Cost:** ${message['cost_usd']:.6f}, **Cost:** {message['cost_vnd']:.0f} VND")
 
-    # React to user input
-    if prompt := st.chat_input("What would you like to know?"):
+    # Create two columns: one for the web search toggle, one for the chat input
+    col1, col2 = st.columns([1, 13])
+
+    with col1:
+        web_search_enabled = st.toggle('🌐', value= st.session_state.web_search_enabled)
+        if web_search_enabled != st.session_state.web_search_enabled:
+            st.session_state.web_search_enabled = web_search_enabled
+            if web_search_enabled:
+                st.session_state.selected_models = [model for model in default_reference_models]
+
+    with col2:
+        # Chat input
+        prompt = st.chat_input("What would you like to know?")
+
+    # Display the current state of web search
+    st.toast(f"Web search đang {'bật' if st.session_state.web_search_enabled else 'tắt'}")
+
+    # Process the user input
+    if prompt:
         st.chat_message("user").markdown(prompt)
         st.session_state.messages.append({"role": "user", "content": prompt})
 
