@@ -486,7 +486,7 @@ async def main_async():
         if web_search_enabled != st.session_state.web_search_enabled:
             st.session_state.web_search_enabled = web_search_enabled
             if web_search_enabled:
-                st.session_state.selected_models = "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo"
+                st.session_state.selected_models = [model for model in default_reference_models]
 
         st.header("Additional System Instructions")
         user_prompt = st.text_area("Add your instructions", value=st.session_state.user_system_prompt, height=100)
@@ -507,7 +507,7 @@ async def main_async():
             main_model = st.selectbox(
                 "Main model (aggregator model)",
                 all_models,
-                index=all_models.index(st.session_state.main_model)
+                index=all_models.index("meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo") if st.session_state.web_search_enabled else st.session_state.main_model
             )
             if main_model != st.session_state.main_model:
                 st.session_state.main_model = main_model
