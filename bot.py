@@ -68,17 +68,18 @@ default_reference_models = [
     "google/gemma-2-9b-it",
     "Qwen/Qwen2-72B-Instruct",
     "google/gemma-2-27b-it",
-    "meta-llama/Meta-Llama-3-70B-Instruct-Turbo",
+    "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
 ]
 
 # All available models
 all_models = [
+    "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
     "deepseek-ai/deepseek-llm-67b-chat",
     "databricks/dbrx-instruct",
     "google/gemma-2-27b-it",
     "google/gemma-2-9b-it",
     "Qwen/Qwen1.5-110B-Chat",
-    "meta-llama/Llama-3-70b-chat-hf",
+    "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
     "meta-llama/Meta-Llama-3-70B-Instruct-Turbo",
     "Qwen/Qwen2-72B-Instruct",
     "Qwen/Qwen1.5-72B",
@@ -88,8 +89,9 @@ all_models = [
 
 # Pricing of each model per 1M tokens(in $)
 model_pricing = {
+    "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo": 5.00,
     "databricks/dbrx-instruct": 1.20,
-    "meta-llama/Llama-3-70b-chat-hf": 0.90,
+    "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo": 0.88,
     "Qwen/Qwen2-72B-Instruct": 0.90,
     "google/gemma-2-27b-it": 0.80,
     "google/gemma-2-9b-it": 0.30,
