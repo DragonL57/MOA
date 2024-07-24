@@ -102,18 +102,6 @@ model_pricing = {
 }
 vnd_per_usd = 25500  # Example conversion rate, update this with the actual rate
 
-max_token_options = {
-    "deepseek-ai/deepseek-llm-67b-chat": 4096,
-    "google/gemma-2-27b-it": 8192,
-    "Qwen/Qwen1.5-110B-Chat": 32768,
-    "meta-llama/Llama-3-70b-chat-hf": 8192,
-    "meta-llama/Meta-Llama-3-70B-Instruct-Turbo": 8192,
-    "Qwen/Qwen2-72B-Instruct": 32768,
-    "Qwen/Qwen1.5-72B": 32768,
-    "microsoft/WizardLM-2-8x22B": 65536,
-    "mistralai/Mixtral-8x22B-Instruct-v0.1": 65536,
-}
-
 # Default system prompt
 default_system_prompt = """Bạn là một trợ lý AI chuyên nghiệp với kiến thức sâu rộng. Khi trả lời các câu hỏi của người dùng, hãy đảm bảo:
 1. Câu trả lời chính xác, dựa trên dữ liệu và đáng tin cậy.
@@ -184,7 +172,7 @@ if "web_search_enabled" not in st.session_state:
     st.session_state.web_search_enabled = False
 
 if "main_model" not in st.session_state:
-    st.session_state.main_model = "Qwen/Qwen2-72B-Instruct"
+    st.session_state.main_model = "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo"
 
 if "total_tokens" not in st.session_state:
     st.session_state.total_tokens = 0
