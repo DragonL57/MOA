@@ -65,11 +65,9 @@ class SharedValue:
 
 # Updated default reference models
 default_reference_models = [
-    "google/gemma-2-9b-it",
-    "mistralai/Mixtral-8x7B-Instruct-v0.1",
     "Qwen/Qwen2-72B-Instruct",
     "google/gemma-2-27b-it",
-    "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+    "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
 ]
 
 # All available models
@@ -488,7 +486,7 @@ async def main_async():
         if web_search_enabled != st.session_state.web_search_enabled:
             st.session_state.web_search_enabled = web_search_enabled
             if web_search_enabled:
-                st.session_state.selected_models = [model for model in default_reference_models]
+                st.session_state.selected_models = "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo"
 
         st.header("Additional System Instructions")
         user_prompt = st.text_area("Add your instructions", value=st.session_state.user_system_prompt, height=100)
