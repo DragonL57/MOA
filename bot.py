@@ -507,7 +507,7 @@ async def main_async():
             main_model = st.selectbox(
                 "Main model (aggregator model)",
                 all_models,
-                index=all_models.index("meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo") if st.session_state.web_search_enabled else st.session_state.main_model
+                index=all_models.index("meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo") if st.session_state.web_search_enabled else 0
             )
             if main_model != st.session_state.main_model:
                 st.session_state.main_model = main_model
