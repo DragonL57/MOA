@@ -290,6 +290,7 @@ def show_mode_selection_popup():
             with col2:
                 if st.button("Single Model"):
                     st.session_state.chat_mode = "single"
+                    st.session_state.main_model = "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo"  # Set the default main model for single model mode
                     st.session_state.show_popup = False
                     st.session_state.needs_rerun = True
 
