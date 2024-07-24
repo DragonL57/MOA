@@ -685,7 +685,6 @@ async def main_async():
                             full_response += chunk
                             
                 else:  # Single model mode
-                    st.session_state.main_model = "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo" # Choose Llama-3.1-70B as main model when websearch turned on
                     output, response_token_count = await generate_together(
                         model=st.session_state.main_model,
                         messages=st.session_state.messages + [{"role": "system", "content": f"Web search results:\n{search_summary}"}],
