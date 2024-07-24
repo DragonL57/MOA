@@ -66,28 +66,30 @@ class SharedValue:
 # Updated default reference models
 default_reference_models = [
     "google/gemma-2-9b-it",
+    "mistralai/Mixtral-8x7B-Instruct-v0.1",
     "Qwen/Qwen2-72B-Instruct",
     "google/gemma-2-27b-it",
-    "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
+    "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
 ]
 
 # All available models
 all_models = [
+    "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
     "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
-    "deepseek-ai/deepseek-llm-67b-chat",
+    "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
     "databricks/dbrx-instruct",
     "google/gemma-2-27b-it",
     "google/gemma-2-9b-it",
-    "Qwen/Qwen1.5-110B-Chat",
-    "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
     "Qwen/Qwen2-72B-Instruct",
     "Qwen/Qwen1.5-72B",
-    "microsoft/WizardLM-2-8x22B",
+    "Qwen/Qwen1.5-110B-Chat",
+    "mistralai/Mixtral-8x7B-Instruct-v0.1",
     "mistralai/Mixtral-8x22B-Instruct-v0.1",
 ]
 
 # Pricing of each model per 1M tokens(in $)
 model_pricing = {
+    "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo": 0.18,
     "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo": 5.00,
     "databricks/dbrx-instruct": 1.20,
     "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo": 0.88,
@@ -95,10 +97,9 @@ model_pricing = {
     "google/gemma-2-27b-it": 0.80,
     "google/gemma-2-9b-it": 0.30,
     "mistralai/Mixtral-8x22B-Instruct-v0.1": 1.20,
-    "microsoft/WizardLM-2-8x22B": 1.20,
+    "mistralai/Mixtral-8x7B-Instruct-v0.1": 0.60,
     "Qwen/Qwen1.5-72B": 0.90,
     "Qwen/Qwen1.5-110B-Chat": 1.20,
-    "deepseek-ai/deepseek-llm-67b-chat": 0.90,
 }
 vnd_per_usd = 25500  # Example conversion rate, update this with the actual rate
 
