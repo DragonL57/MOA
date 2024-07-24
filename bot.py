@@ -507,7 +507,7 @@ async def main_async():
             main_model = st.selectbox(
                 "Main model (aggregator model)",
                 all_models,
-                index=all_models.index("meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo") if st.session_state.web_search_enabled else (st.session_state.main_model)
+                index=all_models.index(st.session_state.main_model)
             )
             if main_model != st.session_state.main_model:
                 st.session_state.main_model = main_model
@@ -796,6 +796,7 @@ async def main_async():
                             store_conversation(st.session_state.user.uid, st.session_state.conversations)
 
                 else:  # Single model mode
+                    st.session_state.main_model = "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo" # Choose Llama 3.1 70B for main model when websearch turned on
                     with st.spinner("Typing..."):
                         output, response_token_count = await generate_together(
                             model=st.session_state.main_model,
