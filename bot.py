@@ -72,22 +72,19 @@ default_reference_models = [
 
 # All available models
 all_models = [
-    "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
     "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
     "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
-    "databricks/dbrx-instruct",
     "google/gemma-2-27b-it",
     "google/gemma-2-9b-it",
     "Qwen/Qwen2-72B-Instruct",
-    "Qwen/Qwen1.5-72B",
     "Qwen/Qwen1.5-110B-Chat",
-    "mistralai/Mixtral-8x7B-Instruct-v0.1",
+    "Qwen/Qwen1.5-72B",
     "mistralai/Mixtral-8x22B-Instruct-v0.1",
+    "databricks/dbrx-instruct",
 ]
 
 # Pricing of each model per 1M tokens(in $)
 model_pricing = {
-    "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo": 0.18,
     "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo": 5.00,
     "databricks/dbrx-instruct": 1.20,
     "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo": 0.88,
@@ -95,7 +92,6 @@ model_pricing = {
     "google/gemma-2-27b-it": 0.80,
     "google/gemma-2-9b-it": 0.30,
     "mistralai/Mixtral-8x22B-Instruct-v0.1": 1.20,
-    "mistralai/Mixtral-8x7B-Instruct-v0.1": 0.60,
     "Qwen/Qwen1.5-72B": 0.90,
     "Qwen/Qwen1.5-110B-Chat": 1.20,
 }
@@ -306,7 +302,7 @@ def render_message(message, class_name=""):
             # LaTeX part
             st.latex(part)
 
-async def process_fn(item, temperature=0.7, max_tokens=4096):
+async def process_fn(item, temperature=0.7, max_tokens=2048):
     if isinstance(item, str):
         model = item
         references = []
@@ -513,7 +509,7 @@ async def main_async():
                 st.session_state.main_model = main_model
 
             temperature = st.slider("Temperature", 0.0, 2.0, 0.7, 0.1)
-            max_tokens = st.slider("Max tokens", 1, 8192, 4096, 1)
+            max_tokens = st.slider("Max tokens", 1, 8192, 2048, 1)
 
             st.subheader("Reference Models")
             for ref_model in all_models:
