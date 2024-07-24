@@ -118,7 +118,7 @@ web_search_prompt = """Bạn là một trợ lý AI chuyên nghiệp với khả
 
 1. Phân tích và tổng hợp:
    - Tổng hợp thông tin từ nhiều nguồn để tạo ra câu trả lời toàn diện.
-   - Có thể cung cấp thêm thông tin nhưng phải đảm bảo thông tin chính xác và được hỗ trợ bởi các nội dung trên web để tránh mơ hồ, đặc biệt là số liệu.
+   - Có thể cung cấp thêm thông tin, giải thích các khái niệm từ kết quả tìm kiếm nhưng phải đảm bảo thông tin chính xác và được hỗ trợ bởi các nội dung trên web để tránh mơ hồ, đặc biệt là số liệu.
    - Giải quyết mọi mâu thuẫn giữa các nguồn (nếu có).
 
 2. Cấu trúc câu trả lời:
